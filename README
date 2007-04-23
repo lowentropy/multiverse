@@ -1,0 +1,39 @@
+================
+ the Multiverse
+================
+
+Copyright(C) 2007 Nathan Matthews
+See the file COPYING for details.
+Email: <lowentropy@gmail.com>
+
+==============================================================
+
+ "I must Create a System or be enslav'd by another Man's.
+  I will not Reason & Compare: my business is to Create."
+
+                  -- William Blake
+                     (a dead man)
+
+==============================================================
+
+
+Contents:
+
+	bin/						utilities
+	config/					user configuration files
+	data/					
+		cache/				cache temp storage
+		user/*/				users' local data
+		keys/					public key storage
+		local/				local host data
+			scripts/		local script root
+	doc/						documentation
+	log/						log files
+	src/						
+		cache/				data cache code
+		p2p/					peer-to-peer host code
+		server/				server-space code
+		sim/					network simulation code
+		test/					various integrity/unit tests
+		util/					various tools/libs
+		viewer/				graphical environment
