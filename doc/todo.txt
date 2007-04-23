@@ -1,0 +1,36 @@
+- bug: repeats and empties in publish! result
+- bug: sometimes hangs on signal? -> signal_on -> start_safe:161
+- bug: sometimes get this:
+	/data/home/lowentropy/src/multiverse/data/local/scripts/pgrid/handlers.rb:60:in `add_script': undefined method `key' for []:Array (NoMethodError)
+					from /data/home/lowentropy/src/multiverse/data/local/scripts/pgrid/handlers.rb:54:in `each'
+					from /data/home/lowentropy/src/multiverse/data/local/scripts/pgrid/handlers.rb:54:in `add_script'
+					from /data/home/lowentropy/src/multiverse/src/script/environment.rb:473:in `call'
+					from /data/home/lowentropy/src/multiverse/src/script/environment.rb:473:in `method_missing'
+					from /data/home/lowentropy/src/multiverse/data/local/scripts/pgrid/handlers.rb:82:in `add_script'
+					from /data/home/lowentropy/src/multiverse/src/script/environment.rb:473:in `call'
+					from /data/home/lowentropy/src/multiverse/src/script/environment.rb:473:in `method_missing'
+					from /data/home/lowentropy/src/multiverse/src/p2p/host.rb:330:in `send'
+					 ... 15 levels...
+					from ./pgrid_test.rb:76:in `times'
+					from ./pgrid_test.rb:76:in `publish'
+					from ./pgrid_test.rb:32:in `run'
+					from ./pgrid_test.rb:142
+
+- simulate publishing/resource lookup
+- simulate pgrid (small-scale)
+- simulate pgrid (large-scale)
+
+
+- write core scripts/protocol
+	- scene data
+	- time warp
+	- avatar
+	- animation
+	- physics
+
+- write viewer
+- write client
+- write server
+
+- implement reputation system
+- implement watermarking
