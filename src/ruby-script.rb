@@ -21,6 +21,10 @@
 $: << File.expand_path(File.dirname(__FILE__) + '/..')
 
 
+# A sandbox object allows code blocks to run in a
+# clean environment; if the blocks have $SAFE = 4,
+# they are effectively cut off from the rest of
+# the system.
 class Sandbox
 	def initialize; end
 	def sandbox(&block)
@@ -38,17 +42,23 @@ class Sandbox
 end
 
 
+# YAML Pipe: (de-)YAML-ize objects coming through the pipe.
+# Objects to be YAML-ized should have a to_yaml method.
+# Objects to be de-YAML-ized should have a static from_yaml
+# method.
 class YamlPipe
 	def initialize(input=$stdin, output=$stdout)
 		@in, @out = input, output
 	end
 	def read
+		klass = @in.readline.chomp
 		len = @in.readline.to_i
 		text = @in.read len
-		YamlObject.new text
+		eval(klass).from_yaml text
 	end
 	def write(object)
 		text = object.to_yaml
+		@out.puts object.class.name
 		@out.puts text.size
 		@out.write text
 	end
