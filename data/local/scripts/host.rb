@@ -22,25 +22,25 @@
 # services
 
 
-script.name = "host"
-script.uid = "F2B90EF9AD856866"
-script.author = "lowentropy@gmail.com"
+$env.name = "host"
+$env.uid = "F2B90EF9AD856866"
+$env.author = "lowentropy@gmail.com"
 
 
 # declare (publish) the host's identification resource
-fun :on_declare_self do
+fun :declare_self do
 	info = host.info.pack.inspect
 	signal! :publish, host.uid, host.uid, info, false, 'add_host'
 end
 
 # declare host, and wait for publish to finish
-fun :on_declare_self! do
+fun :declare_self! do
 	info = host.info.pack.inspect
 	signal? :publish!, host.uid, host.uid, info, false, 'add_host'
 end
 
 # cache a host: add to the directory
-fun :on_add_host do |item|
+fun :add_host do |item|
 	info = MV::P2P::HostInfo.unpack(item.data)
 	host.directory << info
 end

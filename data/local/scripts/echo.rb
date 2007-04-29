@@ -23,15 +23,13 @@ protocol << <<-END
 		text: string
 END
 
-listen :echo do |msg|
-	msg
+# http://hostname/host/echo
+map nil do
+	fun :echo do |msg|
+		msg
+	end
 end
 
-fun :on_echo do |host,text|
-	msg = send?(:sync, host, :echo, :text => text)
-	msg.text if msg
-end
-
-state :default do
-	fun(:start) {exit}
+fun :send_echo do |host,text|
+	ask?(host, :echo, :text => text).text
 end

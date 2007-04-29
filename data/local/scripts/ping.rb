@@ -26,19 +26,19 @@ protocol << <<-END
 END
 
 
-# send back ping (as in echo), but set time of handling
-listen :ping do |msg,time|
-	msg.recv_time = time.to_i
-	msg
+map nil do
+	# send back ping (as in echo), but set time of handling
+	fun :ping do |msg|
+		msg.ping_time = msg.recv_time
+		msg
+	end
 end
 
 
-# SIGNAL: ping
-#
 # send a ping to the target and wait for the reply
 # optionally takes an array return
-fun :on_ping do |target|
-	send?(:sync, target, :ping, :send_time => Time.now.to_i)
+fun :ping do |target|
+	ask? target, :ping
 end
 
 

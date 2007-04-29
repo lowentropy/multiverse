@@ -30,6 +30,9 @@ class Sandbox
 	def sandbox(&block)
 		instance_eval &block
 	end
+	def [](key)
+		eval "@#{key}"
+	end
 	def []=(key, value)
 		if value.respond_to? :call
 			self.send :define_method, key do |*args|
@@ -37,6 +40,30 @@ class Sandbox
 			end
 		else
 			eval "@#{key} = value"
+		end
+	end
+end
+
+
+# YAML Object: reads/writes YAML into DOM
+class YamlObject
+	def initialize(hash)
+		# TODO
+	end
+	def to_yaml
+		# TODO
+	end
+	def self.from_yaml(yaml)
+		# TODO
+	end
+	def method_missing(id, *args)
+		name = id.id2name
+		if name[-1,1] == '=' && @map.include?(name[0...-1])
+			@map[name[0...-1]] = args[0]
+		elsif @map.include?(name)
+			@map[name]
+		else
+			super(id, *args)
 		end
 	end
 end
@@ -51,16 +78,17 @@ class YamlPipe
 		@in, @out = input, output
 	end
 	def read
-		klass = @in.readline.chomp
 		len = @in.readline.to_i
 		text = @in.read len
-		eval(klass).from_yaml text
+		YamlObject.from_yaml text
 	end
 	def write(object)
 		text = object.to_yaml
-		@out.puts object.class.name
 		@out.puts text.size
 		@out.write text
+	end
+	def flush
+		@out.flush
 	end
 end
 
@@ -69,8 +97,8 @@ end
 # messaging, url mapping, sandboxing, and security.
 class Environment
 
-	# set up stuff, taint some of it
-	def initialize(input, output)
+	# set stuff up, taint some of it
+	def initialize(input=$stdin, output=$stdout)
 		@pipe = YamlPipe.new input, output
 		@included = []
 		@sandbox = Sandbox.new
@@ -83,8 +111,19 @@ class Environment
 		@url_patterns = {}.taint
 		@listeners = {}.taint
 		state :global {}
+		start_io_thread
 		add_script_commands
 		add_script_variables
+	end
+
+	# start IO processing thread
+	def start_io_thread
+		@pipe_thread = Thread.new(self) do |env|
+			env.pipe_main
+		end
+		@io_thread = Thread.new(self) do |env|
+			env.io_main
+		end
 	end
 
 	# add script-accessible (unsafe) functions
@@ -104,6 +143,7 @@ class Environment
 		@sandbox[:required] = @required
 		@sandbox[:states] = @state
 		@sandbox[:state] = @state
+		@sandbox[:io_thread] = @io_thread
 	end
 
 	# the given block will have no access to the environment
@@ -156,6 +196,12 @@ class Environment
 		return_value
 	end
 
+	# synchronize on a mutex for the given name
+	def sync(name, &block)
+		mutex = eval "@#{name}_mutex ||= Mutex.new"
+		mutex.synchronize &block
+	end
+
 	# run the script environment. any errors will be thrown
 	# from self.join.
 	def run
@@ -179,8 +225,56 @@ class Environment
 	# and may throw exceptions from scripts.
 	def join
 		@main_thread.join
+		@io_thread.join
 		raise @error if @error
 		nil
+	end
+
+	# first, tell the script to exit, then tell IO to stop
+	# (which it won't until the script does)
+	def shutdown
+		@sandbox[:exit] = true
+		@shutdown = true
+	end
+
+	# pipe reader
+	def pipe_main
+		until @shutdown && @sandbox[:exit]
+			message = @pipe.read
+			sync :inbox do
+				@inbox << message
+			end
+		end
+	end
+
+	# io processing loop
+	def io_main
+		until @shutdown && @sandbox[:exit]
+			handle_messages
+			send_messages
+			flush
+		end
+	end
+
+	# handle messages in inbox
+	def handle_messages
+		until @inbox.empty?
+			sync :inbox do
+				message = @inbox.shift
+			end
+			return unless message
+			# TODO
+		end
+	end
+
+	# send messages from outbox
+	def send_messages
+		# TODO
+	end
+
+	# flush output pipe
+	def flush
+		@pipe.flush
 	end
 
 	######################
@@ -203,13 +297,17 @@ class Environment
 	# map a host url pattern
 	def map(pattern, &block)
 		if @map_id
-			(url_patterns[map_id] ||= [].taint) << [pattern, block]
+			old_map_id = @map_id
+			@map_id += "\\/" + pattern.source
+			(@url_patterns[map_id] ||= {}.taint)[pattern] = @map_id
+			sandbox &block
+			@map_id = old_map_id
 		else
 			if current_state != :global
 				raise "root urls cannot be declared dynamically" 
 			end
 			@map_id = pattern
-			outbox << [:host, :map,
+			@outbox << [:host, :map,
 				{	:pattern => pattern.to_s,
 					:map_id => @map_id}]
 			sandbox &block
@@ -227,15 +325,15 @@ class Environment
 	def ask?(host, key, content={})
 		raise "illegal operation in global scope" if current_state != :global
 		response = []
-		outbox << [:sync, host, key, content, []]
-		main_thread.run while response.empty?
+		@outbox << [:sync, host, key, content, response]
+		@io_thread.run while response.empty?
 		response[0]
 	end
 
 	# send an asynchronous message
 	def tell(host, msg)
 		raise "illegal operation in global scope" if current_state != :global
-		outbox << [:async, host, key, content, response]
+		@outbox << [:async, host, key, content]
 	end
 
 	# look up a class

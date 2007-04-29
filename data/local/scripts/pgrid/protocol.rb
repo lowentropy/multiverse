@@ -47,7 +47,7 @@ protocol << <<-END
 			other
 		hosts: optional = array
 			host: uid
-	
+
 	uncache: message
 		uid: uid
 		requester: uid
