@@ -20,13 +20,14 @@
 
 $: << File.expand_path(File.dirname(__FILE__) + '/..')
 
+require 'message'
+
 
 # A sandbox object allows code blocks to run in a
 # clean environment; if the blocks have $SAFE = 4,
 # they are effectively cut off from the rest of
 # the system.
 class Sandbox
-	def initialize; end
 	def sandbox(&block)
 		instance_eval &block
 	end
@@ -45,50 +46,32 @@ class Sandbox
 end
 
 
-# YAML Object: reads/writes YAML into DOM
-class YamlObject
-	def initialize(hash)
-		# TODO
-	end
-	def to_yaml
-		# TODO
-	end
-	def self.from_yaml(yaml)
-		# TODO
-	end
-	def method_missing(id, *args)
-		name = id.id2name
-		if name[-1,1] == '=' && @map.include?(name[0...-1])
-			@map[name[0...-1]] = args[0]
-		elsif @map.include?(name)
-			@map[name]
-		else
-			super(id, *args)
-		end
-	end
-end
-
-
-# YAML Pipe: (de-)YAML-ize objects coming through the pipe.
-# Objects to be YAML-ized should have a to_yaml method.
-# Objects to be de-YAML-ized should have a static from_yaml
-# method.
-class YamlPipe
-	def initialize(input=$stdin, output=$stdout)
-		@in, @out = input, output
+# Objects to be sent over pipe should have marshal
+# and unmarshal methods
+class ObjectPipe
+	def initialize(input=$stdin, output=$stdout, &unmarshal)
+		@in, @out, @unmarshal = input, output, unmarshal
 	end
 	def read
 		len = @in.readline.to_i
 		text = @in.read len
-		YamlObject.from_yaml text
+		@unmarshal.call text
 	end
 	def write(object)
-		text = object.to_yaml
+		text = object.marshal
 		@out.puts text.size
 		@out.write text
-	end
-	def flush
 		@out.flush
+	end
+end
+
+
+# message pipe just passes static unmarshal method to constructor
+class MessagePipe < ObjectPipe
+	def initialize(input=$stdin, output=$stdout)
+		super(input, output) do |text|
+			Message.unmarshal text
+		end
 	end
 end
 
@@ -98,8 +81,8 @@ end
 class Environment
 
 	# set stuff up, taint some of it
-	def initialize(input=$stdin, output=$stdout)
-		@pipe = YamlPipe.new input, output
+	def initialize
+		@pipe = MessagePipe.new
 		@included = []
 		@sandbox = Sandbox.new
 		@state = [:global].taint
@@ -111,13 +94,13 @@ class Environment
 		@url_patterns = {}.taint
 		@listeners = {}.taint
 		state :global {}
-		start_io_thread
+		start_io_threads
 		add_script_commands
 		add_script_variables
 	end
 
-	# start IO processing thread
-	def start_io_thread
+	# start IO processing threads
+	def start_io_threads
 		@pipe_thread = Thread.new(self) do |env|
 			env.pipe_main
 		end
@@ -128,7 +111,7 @@ class Environment
 
 	# add script-accessible (unsafe) functions
 	def add_script_commands
-		%w(	map listen ask? tell current_state
+		%w(	map listen get post current_state
 				require k method_missing goto
 				state function fun klass).each do |cmd|
 			@sandbox[cmd] = proc {|*args| self.send cmd, *args}
@@ -214,6 +197,7 @@ class Environment
 				sandbox.sandbox do
 					start until @exit
 				end
+				env.done!
 			rescue
 				@error = $!
 			end
@@ -221,25 +205,49 @@ class Environment
 		nil
 	end
 
+	# require that an operation be in global scope
+	def global_required
+		return if current_state == :global
+		raise "operation not allowed dynamically"
+	end
+
+	# require that an operation NOT be in global scope
+	def global_forbidden
+		return if current_state != :global
+		raise "operation not allowed globally"
+	end
+
 	# join the environment's main thread. calls to join block
 	# and may throw exceptions from scripts.
 	def join
-		@main_thread.join
-		@io_thread.join
+		@main_thread.join if @main_thread
+		@io_thread.join if @io_thread
+		@pipe_thread.join if @pipe_thread
 		raise @error if @error
 		nil
 	end
 
+	# signal main thread completion
+	def done!
+		@done = true
+		@main_thread = nil
+	end
+
 	# first, tell the script to exit, then tell IO to stop
 	# (which it won't until the script does)
-	def shutdown
+	def shutdown!
 		@sandbox[:exit] = true
 		@shutdown = true
 	end
 
+	# threads exit when shutdown signalled and scripts exit
+	def shutdown?
+		@shutdown && @finished
+	end
+
 	# pipe reader
 	def pipe_main
-		until @shutdown && @sandbox[:exit]
+		until shutdown?
 			message = @pipe.read
 			sync :inbox do
 				@inbox << message
@@ -249,7 +257,7 @@ class Environment
 
 	# io processing loop
 	def io_main
-		until @shutdown && @sandbox[:exit]
+		until shutdown?
 			handle_messages
 			send_messages
 			flush
@@ -262,7 +270,7 @@ class Environment
 			sync :inbox do
 				message = @inbox.shift
 			end
-			return unless message
+			next unless message
 			# TODO
 		end
 	end
@@ -270,11 +278,6 @@ class Environment
 	# send messages from outbox
 	def send_messages
 		# TODO
-	end
-
-	# flush output pipe
-	def flush
-		@pipe.flush
 	end
 
 	######################
@@ -295,23 +298,27 @@ class Environment
 	end
 
 	# map a host url pattern
-	def map(pattern, &block)
-		if @map_id
-			old_map_id = @map_id
+	def map(arg, &block)
+		@map_id ? map_pattern(arg, &block) : map_root(arg, &block)
+	end
+
+	# map a sub-url pattern
+	def map_pattern(pattern, &block)
+		protect :map_id do |old_map_id|
 			@map_id += "\\/" + pattern.source
-			(@url_patterns[map_id] ||= {}.taint)[pattern] = @map_id
+			@url_patterns[old_map_id] ||= {}.taint
+			@url_patterns[old_map_id][pattern] = @map_id
 			sandbox &block
-			@map_id = old_map_id
-		else
-			if current_state != :global
-				raise "root urls cannot be declared dynamically" 
-			end
-			@map_id = pattern
-			@outbox << [:host, :map,
-				{	:pattern => pattern.to_s,
-					:map_id => @map_id}]
+		end
+	end
+
+	# map a root url
+	def map_root(prefix, &block)
+		global_required
+		protect :map_id do
+			@map_id = prefix
+			@outbox << [:host, msg(:map, :prefix => prefix)]
 			sandbox &block
-			@map_id = nil
 		end
 	end
 
@@ -322,8 +329,8 @@ class Environment
 	end
 
 	# send a synchronous message and wait for the response
-	def ask?(host, key, content={})
-		raise "illegal operation in global scope" if current_state != :global
+	def get(host, key, content={})
+		global_forbidden
 		response = []
 		@outbox << [:sync, host, key, content, response]
 		@io_thread.run while response.empty?
@@ -331,8 +338,8 @@ class Environment
 	end
 
 	# send an asynchronous message
-	def tell(host, msg)
-		raise "illegal operation in global scope" if current_state != :global
+	def post(host, key, content={})
+		global_forbidden
 		@outbox << [:async, host, key, content]
 	end
 
@@ -360,7 +367,7 @@ class Environment
 
 	# declare a new state (nested states not allowed)
 	def state(name, &block)
-		raise "nested states not allowed" unless current_state == :global
+		global_required
 		@states << name unless @states.include? name
 		@functions[name] ||= {}.taint
 		@classes[name] ||= {}.taint
