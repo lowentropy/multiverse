@@ -32,6 +32,7 @@ map 'spool' do
 		delegate :spool => [:send_to]
 end
 
+
 klass :Spool do
 
 	def initialize
