@@ -18,6 +18,8 @@
 #
 
 
+
+# http://HOST/cache/ACTION/UID
 map :cache do
 	map(/get|add|update|delete/) do |action|
 		redirect(:index) {|msg| "/#{action}/#{msg.uid}"}

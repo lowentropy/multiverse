@@ -17,8 +17,22 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+var :spool
+delegate :spool => [:heartbeat, :teardown]
 
-klass :DataSpool do
+fun :setup do
+	$env.spool = k(:Spool).new
+	$env.spool.setup
+end
+
+map 'spool' do
+	public
+		delegate :spool => [:new, :spool, :unspool, :resend]
+	private
+		delegate :spool => [:send_to]
+end
+
+klass :Spool do
 
 	def initialize
 		@chunks = {}
@@ -95,6 +109,25 @@ klass :DataSpool do
 			chunks[seq] = chunk
 		end
 		true
+	end
+
+	def send_to(uid, host, data)
+		size = host.config.chunk_size
+		chunks, remaining = [], data
+		until remaining.empty?
+			chunks, remaining = remaining[0,size], remaining[size..-1]
+		end
+		host.put '/spool/new', :uid => uid, :num_chunks => chunks.size
+		chunks.each_with_index do |chunk,i|
+			host.put '/spool/spool', :uid => uid, :sequence_id => i, :data => chunk
+		end
+		cache_outgoing uid, host, chunks
+	end
+
+	def resend(uid, sequence_id)
+		chunk = outgoing_chunk uid, sequence_id 
+		status = chunk ? :sent : :not_sent
+		reply :uid => uid, :sequence_id => seq, :data => chunk, :status => :sent
 	end
 
 private
