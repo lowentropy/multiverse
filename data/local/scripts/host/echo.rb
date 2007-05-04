@@ -18,14 +18,13 @@
 #
 
 
-# declare (publish) the host's identification resource
-fun :declare_self do
-	publish :uid => host.uid, :owner => host.uid,
-					:content => host.info.marshal,
-					:signed => false, :handler => :add_host
-end
-
-# cache a host: add to the directory
-fun :add_host do |content|
-	host.directory << Message.unmarshal(content)
+# http://HOST/host/echo
+map :host do
+	fun :echo do
+		reply params
+	end
+private
+	fun :send_echo do
+		reply params[:host].to_host.post(params)
+	end
 end

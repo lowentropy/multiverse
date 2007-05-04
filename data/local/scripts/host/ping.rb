@@ -18,19 +18,17 @@
 #
 
 
-protocol.extend <<-end_protocol
-	echo: message
-		text: string
-end_protocol
-
-
-# http://hostname/host/echo
 map :host do
-	fun :echo do
-		reply :text => params[:text]
+	# reply to a ping
+	fun :ping do
+		reply
 	end
-end
 
-fun :echo do |host,text|
-	post(host, :echo, :text => text).text
+	# send a ping to the target and wait for the reply
+	# returns the loop time
+	fun :send_ping do
+		msg = params[:host].to_host.post '/ping', :time => Time.now
+		loop_time = msg[:time] - msg[:receive_time]
+		reply :loop_time => loop_time
+	end
 end

@@ -18,21 +18,19 @@
 #
 
 
-require 'foo'
-require 'bar'
+# declare (publish) the host's identification resource
+map :host do
+private
+	# publish host info/credentials
+	fun :declare do
+		publish :uid => host.uid, :owner => host.uid,
+						:content => host.info.marshal,
+						:signed => false, :handler => :add_host
+	end
 
-self.name = "test"
-self.version = "1"
-self.uid = "665E97600A75B682"
-self.url = "mv://127.0.0.1/local/scripts/test.rb"
-
-fun :helper do
-	puts "baz"
-end
-
-state :default do
-	fun :start do
-		helper
-		exit
+public
+	# cache a host: add to the directory
+	fun :add_host
+		host.directory << Message.unmarshal(params[:host])
 	end
 end
