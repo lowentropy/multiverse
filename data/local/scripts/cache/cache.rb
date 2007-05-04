@@ -19,46 +19,57 @@
 
 
 klass :CacheItem do
+
 	attr_reader :uid, :owner, :signed, :data, :last_used
+	
 	def initialize(uid, owner, data, signed)
 		@uid, @owner, @data, @signed = uid, owner, data, signed
 		modify!
 		use!
 	end
+	
 	def set_to(owner,data,signed)
 		@owner, @data, @signed = owner, data, signed
 		modify!
 	end
+	
 	def modify!
 		@modified = true
 	end
+	
 	def unmodify!
 		@modified = false
 	end
+	
 	def modified?
 		@modified
 	end
+	
 	def use!
 		@last_used = Time.now.to_i
 	end
+	
+	def used?
+		!@last_used.nil?
+	end
+	
 	def <=>(other)
 		@last_used <=> other.last_used
 	end
 end
 
+
 klass :DataCache do
 
+	use_host_config :max_cache_size
+
 	def initialize(config={})
-		begin
-			@config = config
-			@data = {}
-			config.each do |uid,arr|
-				owner, data, signed = arr
-				@data[uid] = $env.new :CacheItem, uid, owner, data, signed
-				@data[uid].unmodify!
-			end
-		rescue
-			$env.err $!
+		@config = config
+		@data = {}
+		config.each do |uid,arr|
+			owner, data, signed = arr
+			@data[uid] = $env.new :CacheItem, uid, owner, data, signed
+			@data[uid].unmodify!
 		end
 	end
 	
@@ -76,7 +87,7 @@ klass :DataCache do
 			return false if @data[uid].signed && (@data[uid].owner != owner)
 			@data[uid].set_to owner, data, signed
 		else
-			@data[uid] = $env.new :CacheItem, uid, owner, data, signed
+			@data[uid] = new :CacheItem, uid, owner, data, signed
 		end
 		@config[uid] = [owner, data, signed]
 		true
@@ -121,7 +132,7 @@ klass :DataCache do
 		end.sort.map do |arr|
 			arr[1]
 		end
-		uids[host.config.max_cache_size..-1].each do |uid|
+		uids[max_cache_size..-1].each do |uid|
 			delete uid
 		end
 	end

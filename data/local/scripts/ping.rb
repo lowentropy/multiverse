@@ -18,31 +18,16 @@
 #
 
 
-# a ping has fields to remember latency
-protocol << <<-END
-	ping: message
-		send_time: u64 = 0
-		recv_time: u64 = 0
-END
-
-
-map nil do
-	# send back ping (as in echo), but set time of handling
-	fun :ping do |msg|
-		msg.ping_time = msg.recv_time
-		msg
+map :host do
+	fun :ping
+		reply 
 	end
 end
 
 
 # send a ping to the target and wait for the reply
-# optionally takes an array return
-fun :ping do |target|
-	ask? target, :ping
-end
-
-
-# ping server is stateless (TODO: add latency collection)
-state :default do
-	fun(:start) {exit}
+# returns the loop time
+fun :send_ping do |host|
+	msg = post(host['/ping'], :time => Time.now)
+	msg[:time] - msg[:receive_time]
 end

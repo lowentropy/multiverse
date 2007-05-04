@@ -18,34 +18,14 @@
 #
 
 
-# this script handles miscellaneous host-related
-# services
-
-
-$env.name = "host"
-$env.uid = "F2B90EF9AD856866"
-$env.author = "lowentropy@gmail.com"
-
-
 # declare (publish) the host's identification resource
 fun :declare_self do
-	info = host.info.pack.inspect
-	signal! :publish, host.uid, host.uid, info, false, 'add_host'
-end
-
-# declare host, and wait for publish to finish
-fun :declare_self! do
-	info = host.info.pack.inspect
-	signal? :publish!, host.uid, host.uid, info, false, 'add_host'
+	publish :uid => host.uid, :owner => host.uid,
+					:content => host.info.marshal,
+					:signed => false, :handler => :add_host
 end
 
 # cache a host: add to the directory
-fun :add_host do |item|
-	info = MV::P2P::HostInfo.unpack(item.data)
-	host.directory << info
-end
-
-# host services are stateless
-state :default do
-	fun(:start) {exit}
+fun :add_host do |content|
+	host.directory << Message.unmarshal(content)
 end

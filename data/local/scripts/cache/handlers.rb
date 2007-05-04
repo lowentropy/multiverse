@@ -18,47 +18,13 @@
 #
 
 
-fun :on_cache do |msg,data|
-	signed = msg.data_signed ? msg.data : nil
-	if script.cache.put msg.uid, msg.owner, data, signed
-		if msg.handler
-			signal? msg.handler.to_sym, msg
+map :cache do
+	map(/get|add|update|delete/) do |action|
+		redirect(:index) {|msg| "/#{action}/#{msg.uid}"}
+		map(/[0-9a-fA-F]{16}/) do |uid|
+			fun :index do |msg|
+				$env.cache.send action, uid, msg
+			end
 		end
-	else
-		"cache failed"
-		false
 	end
-end
-
-fun :on_uncache do |uid|
-	puts "in uncache: begin = #{uid.inspect}"
-	data = script.cache.get uid
-	puts "in uncache: end = #{data}"
-	data
-end
-
-fun :on_lookup do |uid|
-	text = script.cache.get uid
-	unless text
-		dbg "lookup failed, trying to retrieve"
-		text = signal? :retrieve, uid
-		dbg "the retrieve returned"
-	end
-	begin
-		eval(text)
-	rescue
-		text
-	end
-end
-
-fun :on_query_cache do |uid|
-	script.cache.query uid
-end
-
-fun :on_dump_cache do
-	script.cache.dump
-end
-
-fun :on_clear_cache do
-	script.cache.clear
 end

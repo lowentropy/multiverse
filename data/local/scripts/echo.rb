@@ -18,18 +18,19 @@
 #
 
 
-protocol << <<-END
+protocol.extend <<-end_protocol
 	echo: message
 		text: string
-END
+end_protocol
+
 
 # http://hostname/host/echo
-map nil do
-	fun :echo do |msg|
-		msg
+map :host do
+	fun :echo do
+		reply :text => params[:text]
 	end
 end
 
-fun :send_echo do |host,text|
-	ask?(host, :echo, :text => text).text
+fun :echo do |host,text|
+	post(host, :echo, :text => text).text
 end

@@ -21,15 +21,10 @@
 require 'cache/cache'
 require 'cache/handlers'
 
-script.name = "cache"
-script.uid = "3A4E6040D292B96B"
-script.version = "0.0.1"
-script.author = "lowentropy@gmail.com"
-
 var :cache
 
 fun :setup do |config|
-	script.cache = k(:DataCache).new config
+	$env.cache = k(:DataCache).new config
 end
 
 fun :teardown do |config|
@@ -39,8 +34,6 @@ end
 
 state :default do
 	fun :start do
-		Thread.pass
-		#sleep host.config.cache_clean_interval
-		#script.cache.clean
+		exit
 	end
 end
