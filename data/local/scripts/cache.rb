@@ -18,6 +18,31 @@
 #
 
 
+require 'cache/cache'
+require 'cache/handlers'
+
+var :cache
+
+delegate :cache => [:teardown, :heartbeat]
+
+fun :setup do |config|
+	$env.cache = k(:DataCache).new config
+	$env.setup
+end
+
+# http://HOST/cache/ACTION/UID
+map :cache do
+	map(/get|add|update|delete/) do |action|
+		redirect(:index) {|msg| "/#{action}/#{msg.uid}"}
+		map(/[0-9a-fA-F]{16}/) do |uid|
+			fun :index do |msg|
+				$env.cache.send action, uid, msg
+			end
+		end
+	end
+end
+
+
 klass :CacheItem do
 
 	attr_reader :uid, :owner, :signed, :data, :last_used
