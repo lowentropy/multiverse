@@ -103,8 +103,8 @@ klass :PGridHost do
 		elsif l1 > l2 and l2 > 0 and depth < max_depth
 			grid.pointers[prefix[0,lc+1]].each do |bits|
 				uid = bits.to_uid
-				send? :async, uid, :pgrid_exchange,
-					:config => self.config,
+				bits.to_uid.to_host.put '/pgrid/exchange',
+					:config => config.inspect,
 					:depth => depth + 1,
 					:respond => true
 			end

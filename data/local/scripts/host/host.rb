@@ -30,7 +30,7 @@ private
 
 public
 	# cache a host: add to the directory
-	fun :add_host
+	fun :add
 		host.directory << Message.unmarshal(params[:host])
 	end
 end

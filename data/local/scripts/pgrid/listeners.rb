@@ -19,101 +19,75 @@
 
 
 map :pgrid do
+
 	# do grid exchange when prompted
-	fun :exchange do |msg|
-		grid = k(:PGridHost).load(self.host, eval(msg.config))
-		signal! :pgrid_exchange, msg.sender, grid, msg.depth, !msg.respond
-		if msg.respond
-			send? :async, msg.sender, :pgrid_exchange,
-					:config => self.grid.config.inspect,
-					:depth => msg.depth, :respond => false
+	fun :exchange do
+		load_params :sender, :depth, :respond
+		grid = k(:PGridHost).load(host, eval(params[:pgrid]))
+		pgrid.exchange sender.to_host, grid, depth, !respond
+		if respond
+			sender.put '/pgrid/exchange',
+				:pgrid => pgrid.config.inspect,
+				:depth => depth,
+				:respond => false
 		end
 	end
 
 	# accepts a cache request (sync, though result may not be used).
 	# this listener first checks whether the grid should handle the
 	# data, and passes it on if not.
-	fun :cache do |msg|
-		dbg "in cache"
-		do_cache = false
+	fun :cache do
+		load_params :uid, :chunks, :data, :signed, :owner
 
 		# require signed data for updates or when specified in config
-		res = if	(grid.require_cache_sigs? and !msg.data_signed)# or
-			#	(grid.have_signed? msg.uid and !msg.data_signed)
-			dbg "not signed"
-			msg(	:cache_ack, :uid => msg.uid,
-						:status => :denied, :reason => :not_signed)
+		if (pgrid.require_cache_sigs? and signed)# or
+			reply :uid => uid, :status => :denied, :reason => :not_signed
 
 		# obtain data from spool if necessary
-		elsif (data = msg.chunks ? unspool(msg.uid) : msg.data).nil?
-			dbg "data loss"
-			msg(	:cache_ack, :uid => msg.uid,
-						:status => :failed, :reason => :data_loss)
+		elsif (data = chunks ? host.get("/spool/get/#{uid}") : data).nil?
+			reply :uid => uid, :status => :failed, :reason => :data_loss
 
 		# if we don't handle the UID, pass it along (but cache it too!)
 		elsif !grid.handles?(msg.uid)
-			dbg "#{$env.host.short}: going to publish #{msg.uid} now"
-			hosts = signal? :publish!,	msg.uid, msg.owner, msg.data,
-																	msg.data_signed, msg.handler
-			do_cache = true
-			msg(	:cache_ack, :uid => msg.uid,
-						:status => :redirected, :hosts => hosts)
+			hosts = host.post('/pgrid/publish', params)[:hosts]
+			reply :uid > uid, :status => :redirected, :hosts => hosts
+			host.post '/cache/update', params if do_cache
 
 		# try to unsign the data
-		elsif msg.data_signed && (data = unsign data, msg.owner).nil?
-			dbg "can't unsign stuff owned by #{msg.owner}"
-			msg(	:cache_ack, :uid => msg.uid, 
-						:status => :failed, :reason => :bad_signature)
+		elsif signed && (data = unsign data, owner).nil?
+			reply :uid => uid, :status => :failed, :reason => :bad_signature
 
 		# cache it, don't pass anywhere
 		else
-			do_cache = true
-			msg(:cache_ack, :uid => msg.uid, :status => :accepted)
+			reply :uid => uid, :status => :accepted
+			host.post '/cache/update', params if do_cache
+
 		end
 
-		if do_cache
-			# signal the cache and wait for answer
-			dbg "going to wait for cache now (#{msg.data_signed})"
-			signal? :cache, msg, data
-			dbg "done waiting for cache now"
-		end
-
-		dbg "end of cache"
-		res
+		# signal the cache and wait for answer
 	end
 
-	# do uncache (sync)
-	fun :uncache do |msg|
-		# redirect if we don't handle it
-		if !grid.handles? msg.uid
-			msg(	:uncache_ack, :uid => msg.uid,
-						:status => :redirect, :hosts => grid.handlers(msg.uid))
+	# get cached data
+	fun :find do
+		load_params :uid, :requester, :chunks
 
-		# retrieve data from 
-		elsif (data = signal?(:uncache, msg.uid))
-			msg(	:uncache_ack, :uid => msg.uid,
-						:status => :failed, :reason => :cannot_find, :hosts => [])
+		if !pgrid.handles? uid
+			reply :uid => uid, :status => :redirect, :hosts => pgrid.handlers(uid)
+
+		elsif !(item = host.post('/cache/get', :uid => uid))[:found]
+			reply :uid => uid, :status => :failed, :reason => :cannot_find
 
 		else
-			# decide whether to chunk it
-			if grid.should_chunk? data[0].size, msg.chunks
-				# send the chunks
-				signal? :send_chunks, msg.uid, msg.requester, data[0]
-					
-				# send the notice
-				send_ :async, msg.requester, :cache,
-					:uid => msg.uid, :owner => data[1], :chunks => true,
-					:data_signed => data[2], :acknowledge => false
+			if pgrid.should_chunk? item.data.size, chunks
+				host.post '/spool/send_chunked',
+					:uid => uid, :host => requester, :data => item.data
+				reply :uid => uid, :status => :sent, :spooled => true,
+					:signed => item.signed, :owner => item.owner
 
 			else
-				# send data in one message
-				send_ :async, msg.requester, :cache,
-					:uid => msg.uid, :owner => data[1], :chunks => false,
-					:data_signed => data[2], :acknowledge => false
+				reply :uid => uid, :status => :sent, :owner => item.owner,
+					:data => item.data, :spooled => false, :signed => item.signed
 			end
-
-			# send success message
-			msg(:uncache_ack, :uid => msg.uid, :status => :sent, :hosts => [])
 		end
 	end
 end

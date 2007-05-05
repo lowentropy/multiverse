@@ -30,9 +30,11 @@ map 'spool' do
 		delegate :spool => [:new, :spool, :unspool, :resend]
 	private
 		delegate :spool => [:send_to]
+		fun :send {$env.spool.send_to params}
 end
 
 
+# Spools incoming or outgoing data streams.
 klass :Spool do
 
 	def initialize

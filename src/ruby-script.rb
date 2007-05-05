@@ -66,7 +66,7 @@ class ObjectPipe
 end
 
 
-# message pipe just passes static unmarshal method to constructor
+# Message pipe just passes static unmarshal method to constructor
 class MessagePipe < ObjectPipe
 	def initialize(input=$stdin, output=$stdout)
 		super(input, output) do |text|
@@ -113,7 +113,8 @@ class Environment
 	def add_script_commands
 		%w(	map listen get post current_state
 				require k method_missing goto
-				state function fun klass).each do |cmd|
+				state function fun klass delegate
+				private public).each do |cmd|
 			@sandbox[cmd] = proc {|*args| self.send cmd, *args}
 		end
 	end
@@ -315,17 +316,12 @@ class Environment
 	# map a root url
 	def map_root(prefix, &block)
 		global_required
-		protect :map_id do
+		protect :map_id, :protection_level do
 			@map_id = prefix
+			@protection_level = :public
 			@outbox << [:host, msg(:map, :prefix => prefix)]
 			sandbox &block
 		end
-	end
-
-	# declare a message handler
-	def listen(key, content={}, &block)
-		raise "must declare handlers inside mapped url" unless map_id
-		(@listeners[map_id] ||= {}.taint)[key] = [content, block]
 	end
 
 	# send a synchronous message and wait for the response
@@ -355,8 +351,21 @@ class Environment
 	end
 
 	# declare a function in this state
+	# if it's inside a map block, it will be used
+	# as a message handler
 	def function(name, &block)
-		@functions[current_state][name] = &block
+		if @map_id
+			(@listeners[map_id] ||= {}.taint)[key] = \
+				[content, block, @protection_level]
+		else
+			@functions[current_state][name] = &block
+		end
+	end
+	alias :fun :function
+
+	# declare a message handler
+	def listen(key, content={}, &block)
+		raise "must declare handlers inside mapped url" unless map_id
 	end
 
 	# declare a new class in this state
@@ -374,6 +383,29 @@ class Environment
 		goto name
 		sandbox &block
 		goto :global
+	end
+
+	# delegate handler methods to an object
+	def delegate(delegations = {})
+		delegations.each do |object_name,methods|
+			methods.each do |method|
+				fun method do
+					eval "$env.#{object_name}.#{method} params"
+				end
+			end
+		end
+	end
+
+	# protection level for message handlers;
+	# private handlers can only be accessed from
+	# hosts in an ACL, by default just the handling
+	# host
+	def private
+		@protection_level = :private
+	end
+
+	def public
+		@protection_level = :public
 	end
 
 	# try to call a script-defined function
