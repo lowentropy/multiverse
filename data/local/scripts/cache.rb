@@ -30,15 +30,12 @@ fun :setup do |config|
 	$env.setup
 end
 
-# http://HOST/cache/ACTION/UID
 map :cache do
-	map(/get|add|update|delete/) do |action|
-		redirect(:index) {|msg| "/#{action}/#{msg.uid}"}
-		map(/[0-9a-fA-F]{16}/) do |uid|
-			fun :index do |msg|
-				$env.cache.send action, uid, msg
-			end
-		end
+	map :get do
+		resource(/UID/) {|uid| cache.get uid}
+	end
+	map(/add|update|delete/) do |action|
+		action(/UID/) {|uid| cache.send action, uid, msg}
 	end
 end
 
@@ -49,8 +46,7 @@ klass :CacheItem do
 	
 	def initialize(uid, owner, data, signed)
 		@uid, @owner, @data, @signed = uid, owner, data, signed
-		modify!
-		use!
+		modify! and use!
 	end
 	
 	def set_to(owner,data,signed)
@@ -93,7 +89,7 @@ klass :DataCache do
 		@data = {}
 		config.each do |uid,arr|
 			owner, data, signed = arr
-			@data[uid] = $env.new :CacheItem, uid, owner, data, signed
+			@data[uid] = $env.k(:CacheItem).new uid, owner, data, signed
 			@data[uid].unmodify!
 		end
 	end
@@ -112,7 +108,7 @@ klass :DataCache do
 			return false if @data[uid].signed && (@data[uid].owner != owner)
 			@data[uid].set_to owner, data, signed
 		else
-			@data[uid] = new :CacheItem, uid, owner, data, signed
+			@data[uid] = $env.k(:CacheItem).new uid, owner, data, signed
 		end
 		@config[uid] = [owner, data, signed]
 		true
@@ -123,7 +119,32 @@ klass :DataCache do
 		item ? item.data : nil
 	end
 
-	def dump
+	def add
+		$env.load_params :uid, :owner, :data, :signed
+		if @data[uid]
+			$env.reply :uid => uid, :status => :failed, :reason => :duplicate 
+		else
+			put uid, owner, data, signed
+			$env.reply :uid => uid, :status => :succeeded
+		end
+	end
+
+	def update
+		$env.load_params :uid, :owner, :data, :signed
+		if put uid, owner, data, signed
+			$env.reply :uid => uid, :status => :succeeded
+		else
+			$env.reply :uid => uid, :status => :failed, :reason => :duplicate
+		end
+	end
+
+	def delete
+		private!
+		$env.load_params :uid
+		delete uid
+	end
+
+	def dump(params)
 		@data.keys
 	end
 
@@ -160,6 +181,14 @@ klass :DataCache do
 		uids[max_cache_size..-1].each do |uid|
 			delete uid
 		end
+	end
+
+	def teardown
+		# TODO
+	end
+
+	def heartbeat
+		# TODO
 	end
 
 end
