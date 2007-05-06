@@ -18,62 +18,10 @@
 #
 
 
-$: << File.expand_path(File.dirname(__FILE__) + '/..')
+$: << File.dirname(__FILE__)
 
-require 'message'
-
-
-# A sandbox object allows code blocks to run in a
-# clean environment; if the blocks have $SAFE = 4,
-# they are effectively cut off from the rest of
-# the system.
-class Sandbox
-	def sandbox(&block)
-		instance_eval &block
-	end
-	def [](key)
-		eval "@#{key}"
-	end
-	def []=(key, value)
-		if value.respond_to? :call
-			self.send :define_method, key do |*args|
-				value.call *args
-			end
-		else
-			eval "@#{key} = value"
-		end
-	end
-end
-
-
-# Objects to be sent over pipe should have marshal
-# and unmarshal methods
-class ObjectPipe
-	def initialize(input=$stdin, output=$stdout, &unmarshal)
-		@in, @out, @unmarshal = input, output, unmarshal
-	end
-	def read
-		len = @in.readline.to_i
-		text = @in.read len
-		@unmarshal.call text
-	end
-	def write(object)
-		text = object.marshal
-		@out.puts text.size
-		@out.write text
-		@out.flush
-	end
-end
-
-
-# Message pipe just passes static unmarshal method to constructor
-class MessagePipe < ObjectPipe
-	def initialize(input=$stdin, output=$stdout)
-		super(input, output) do |text|
-			Message.unmarshal text
-		end
-	end
-end
+require 'sandbox'
+require 'pipe'
 
 
 # Script environment handles states, functions, classes,
@@ -281,28 +229,6 @@ class Environment
 		# TODO
 	end
 
-	######################
-	## SCRIPT FUNCTIONS ##
-	######################
-
-	# the current state
-	def current_state
-		@state[0]
-	end
-
-	# require another file (depth-first order)
-	def require(script)
-		unless @included.include? script
-			@required << script
-			raise "require"
-		end
-	end
-
-	# map a host url pattern
-	def map(arg, &block)
-		@map_id ? map_pattern(arg, &block) : map_root(arg, &block)
-	end
-
 	# map a sub-url pattern
 	def map_pattern(pattern, &block)
 		protect :map_id do |old_map_id|
@@ -324,19 +250,26 @@ class Environment
 		end
 	end
 
-	# send a synchronous message and wait for the response
-	def get(host, key, content={})
-		global_forbidden
-		response = []
-		@outbox << [:sync, host, key, content, response]
-		@io_thread.run while response.empty?
-		response[0]
+	######################
+	## SCRIPT FUNCTIONS ##
+	######################
+
+	# the current state
+	def current_state
+		@state[0]
 	end
 
-	# send an asynchronous message
-	def post(host, key, content={})
-		global_forbidden
-		@outbox << [:async, host, key, content]
+	# require another file (depth-first order)
+	def require(script)
+		unless @included.include? script
+			@required << script
+			raise "require"
+		end
+	end
+
+	# map a host url pattern
+	def map(arg, &block)
+		@map_id ? map_pattern(arg, &block) : map_root(arg, &block)
 	end
 
 	# look up a class

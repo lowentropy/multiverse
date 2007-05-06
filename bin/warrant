@@ -1,6 +1,6 @@
 #! /bin/bash
 
 for file ; do
-	cat ~/src/multiverse/doc/warranty $file > $file.tmp
+	cat ~/mv/doc/warranty $file > $file.tmp
 	mv $file.tmp $file
 done
