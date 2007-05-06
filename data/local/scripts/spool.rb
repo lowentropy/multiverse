@@ -26,11 +26,10 @@ fun :setup do
 end
 
 map 'spool' do
-	public
-		delegate :spool => [:new, :spool, :unspool, :resend]
-	private
-		delegate :spool => [:send_to]
-		fun :send {$env.spool.send_to params}
+public
+	delegate :spool => [:new, :spool, :resend]
+private
+	delegate :spool => [:get, :send => :send_to]
 end
 
 

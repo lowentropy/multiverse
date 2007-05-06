@@ -79,7 +79,7 @@ map :pgrid do
 
 		else
 			if pgrid.should_chunk? item.data.size, chunks
-				host.post '/spool/send_chunked',
+				host.post '/spool/send',
 					:uid => uid, :host => requester, :data => item.data
 				reply :uid => uid, :status => :sent, :spooled => true,
 					:signed => item.signed, :owner => item.owner

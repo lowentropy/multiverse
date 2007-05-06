@@ -387,10 +387,13 @@ class Environment
 
 	# delegate handler methods to an object
 	def delegate(delegations = {})
-		delegations.each do |object_name,methods|
+		delegations.each do |object,methods|
 			methods.each do |method|
-				fun method do
-					eval "$env.#{object_name}.#{method} params"
+				action, fun = method.is_a?(Hash) ?
+					[method.keys[0], method.values[0]] :
+					[method, method]
+				fun action do
+					eval "$env.#{object}.#{fun}"
 				end
 			end
 		end
