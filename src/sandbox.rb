@@ -25,6 +25,9 @@ $: << File.dirname(__FILE__)
 # they are effectively cut off from the rest of
 # the system.
 class Sandbox
+	def initialize
+		self.taint
+	end
 	def sandbox(&block)
 		instance_eval &block
 	end
@@ -33,9 +36,9 @@ class Sandbox
 	end
 	def []=(key, value)
 		if value.respond_to? :call
-			self.send :define_method, key do |*args|
-				value.call *args
-			end
+			mod = Module.new
+			mod.send :define_method, key, &value
+			self.extend mod
 		else
 			eval "@#{key} = value"
 		end
