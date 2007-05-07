@@ -22,6 +22,7 @@ $: << File.dirname(__FILE__)
 
 require 'sandbox'
 require 'pipe'
+require 'host'
 
 
 # Script environment handles states, functions, classes,
@@ -32,6 +33,7 @@ class Environment
 	def initialize
 		@pipe = MessagePipe.new
 		@included = []
+		@inbox = []
 		@sandbox = Sandbox.new
 		@state = [:global].taint
 		@classes = {}.taint
@@ -59,10 +61,10 @@ class Environment
 
 	# add script-accessible (unsafe) functions
 	def add_script_commands
-		%w(	map listen get post current_state
+		%w(	map current_state resource
 				require k method_missing goto
 				state function fun klass delegate
-				private public).each do |cmd|
+				private public params reply).each do |cmd|
 			@sandbox[cmd] = proc {|*args| self.send cmd, *args}
 		end
 	end
@@ -148,7 +150,7 @@ class Environment
 				end
 				env.done!
 			rescue
-				@error = $!
+				error << $!
 			end
 		end
 		nil
@@ -172,7 +174,7 @@ class Environment
 		@main_thread.join if @main_thread
 		@io_thread.join if @io_thread
 		@pipe_thread.join if @pipe_thread
-		raise @error if @error
+		raise @error[0] if @error[0]
 		nil
 	end
 
@@ -220,13 +222,70 @@ class Environment
 				message = @inbox.shift
 			end
 			next unless message
-			# TODO
+			handle message
 		end
 	end
 
 	# send messages from outbox
 	def send_messages
-		# TODO
+		until @outbox.empty?
+			sync :outbox do
+				message = @outbox.shift
+			end
+			send_message message
+		end
+	end
+
+	# handle a message
+	def handle(message)
+		case message.command
+		when :quit then shutdown!
+		when :action then action message.url, message.params
+		else @outbox << [	:no_command, message[:message_id],
+											message.command.to_s, {}]
+		end
+	end
+
+	# call an action on the environment
+	# TODO: try to DRY this up some
+	def action(path, params)
+		Thread.new(self) do |env|
+			parts = path.split '/'
+			if @url_patterns[parts[0]]
+				map_id = parts.shift
+				while parts.size > 1
+					map_id = @url_patterns[map_id].each do |pattern,new_id|
+						break(new_id) if pattern =~ parts[0]
+						nil
+					end
+					if map_id.nil?
+						host_error :no_path, path, params
+						break
+					end
+				end
+				unless map_id.nil?
+					action = parts[0].to_sym
+					block = env.listeners[map_id][action]
+					if block.nil?
+						host_error :no_action, path, params
+					else
+						$_params = params
+						env.sandbox &block
+					end
+				end
+			else
+				host_error :no_root, path, params
+			end
+		end
+	end
+
+	# send error message to host controller
+	def host_error(error, path, params)
+		@outbox << [error, nil, path, params]
+	end
+
+	# send outgoing message to host
+	def send_message(message)
 	end
 
 	# map a sub-url pattern
@@ -288,18 +347,13 @@ class Environment
 	# as a message handler
 	def function(name, &block)
 		if @map_id
-			(@listeners[map_id] ||= {}.taint)[key] = \
-				[content, block, @protection_level]
+			@listeners[map_id] ||= {}.taint
+			@listeners[map_id][name] = [block, @protection_level]
 		else
 			@functions[current_state][name] = &block
 		end
 	end
 	alias :fun :function
-
-	# declare a message handler
-	def listen(key, content={}, &block)
-		raise "must declare handlers inside mapped url" unless map_id
-	end
 
 	# declare a new class in this state
 	def klass(name, parent=nil, &block)
@@ -342,6 +396,17 @@ class Environment
 
 	def public
 		@protection_level = :public
+	end
+
+	# get action parameters
+	def params
+		$_params
+	end
+
+	# reply to a GET or POST
+	def reply(params = {})
+		params[:message_id] = $_params[:message_id]
+		@outbox << [:reply, nil, nil, params]
 	end
 
 	# try to call a script-defined function
