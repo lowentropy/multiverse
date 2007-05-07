@@ -20,6 +20,8 @@
 
 $: << File.dirname(__FILE__)
 
+require 'message'
+
 
 # Objects to be sent over pipe should have marshal
 # and unmarshal methods
