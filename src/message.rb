@@ -2,11 +2,21 @@ $: << File.dirname(__FILE__)
 
 class Message
 
+	attr_accessor :command, :host, :url
+
 	def initialize(command, host, url, params)
 		@command = command
 		@host = host
 		@url = url
 		@params = params
+	end
+
+	def [](param)
+		@params[param]
+	end
+
+	def []=(param, value)
+		@params[param] = value
 	end
 
 	def marshal
@@ -16,7 +26,7 @@ class Message
 		@params.map do |k,v|
 			"#{k.to_s}\n#{v.class.to_s}\n" +
 			"#{v.to_s.size}\n#{v.to_s}"
-		end
+		end.join('')
 	end
 
 	def self.unmarshal(text)
@@ -25,6 +35,7 @@ class Message
 		url, text = next_str text
 		num_params, text = next_line(text)
 		num_params = num_params.to_i
+		command = command.to_sym
 		params = {}
 		num_params.times do
 			key, text = next_line text
@@ -32,9 +43,9 @@ class Message
 			klass = klass.to_sym
 			str, text = next_str text
 			params[key.to_sym] = case klass
-			when Fixnum then str.to_i
-			when Float then str.to_f
-			when Symbol then str.to_sym
+			when :Fixnum then str.to_i
+			when :Float then str.to_f
+			when :Symbol then str.to_sym
 			else str; end
 		end
 		Message.new command, host, url, params
