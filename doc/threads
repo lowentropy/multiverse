@@ -1,9 +1,0 @@
-host (not joined):
-	host.main: calls flush on all environments
-net (not joined):
-	gserver: some network stuff, calls serve
-	net.main: decode, dispatch, decay, pass, repeat
-	net.join: joins gserver threads
-net.shutdown (joined): sleep/stop/join main thread
-net.dispatch (sometimes joined):
-	handler: joins if sync
