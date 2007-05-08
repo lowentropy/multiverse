@@ -247,41 +247,53 @@ class Environment
 	end
 
 	# call an action on the environment
-	# TODO: try to DRY this up some
 	def action(path, params)
 		Thread.new(self) do |env|
-			parts = path.split '/'
-			if @url_patterns[parts[0]]
-				map_id = parts.shift
-				while parts.size > 1
-					map_id = @url_patterns[map_id].each do |pattern,new_id|
-						break(new_id) if pattern =~ parts[0]
-						nil
-					end
-					if map_id.nil?
-						host_error :no_path, path, params
-						break
-					end
-				end
-				unless map_id.nil?
-					action = parts[0].to_sym
-					block = env.listeners[map_id][action]
-					if block.nil?
-						host_error :no_action, path, params
-					else
-						$_params = params
-						env.sandbox &block
-					end
-				end
-			else
-				host_error :no_root, path, params
-			end
+			map_id, action = resolve_path path, params
+			block = resolve_action map_id, action, params
+			$_params = params
+			env.sandbox &block
 		end
+	end
+
+	# resolve path into map context and action name
+	def resolve_path(path, params)
+		parts = path.split '/'
+		map_id = parts.shift
+		while parts.size > 1
+			map_id = resolve_part map_id, parts.shift, path, params
+		end
+		return map_id, parts.shift
+	end
+
+	# resolve part of a path
+	def resolve_part(map_id, part, path, params)
+		if @url_patterns[map_id].nil?
+			return host_error :no_path, path, params
+		end
+		ids = @url_patterns[map_id].keys.select do |pattern|
+			pattern =~ part
+		end
+		if ids.empty?
+			return host_error :no_path, path, params
+		elsif ids.size > 1
+			return host_error :ambiguous_path, path, params
+		else
+			return ids.shift
+		end
+	end
+
+	# resolve action name in map context into block
+	def resolve_action(map_id, action, params)
+		block = env.listeners[map_id][action]
+		return host_error :no_action, path, params if block.nil?
+		return block
 	end
 
 	# send error message to host controller
 	def host_error(error, path, params)
 		@outbox << [error, nil, path, params]
+		nil
 	end
 
 	# send outgoing message to host
