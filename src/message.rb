@@ -19,6 +19,10 @@ class Message
 		@params[param] = value
 	end
 
+	def replies_to?(message)
+		(@command == :reply) && (self[:message_id] == message[:message_id])
+	end
+
 	def marshal
 		[@command, @host, @url].map do |obj|
 			"#{obj.to_s.size}\n#{obj.to_s}"

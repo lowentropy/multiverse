@@ -50,7 +50,7 @@ class Host
 		status = []
 		@env.outbox << [:post, @info, url, params, response, status]
 		@env.pass until status.any?
-		(status = status[0]) == :ok ? response : raise(status)
+		(status = status[0]) == :ok ? response[0].params : raise(status)
 	end
 
 	def get(url, params={})
@@ -58,7 +58,7 @@ class Host
 		status = []
 		@env.outbox << :get, @info, url, params, response, status]
 		@env.pass until status.any?
-		(status = status[0]) == :ok ? response[0] : raise(status)
+		(status = status[0]) == :ok ? response[0][:data] : raise(status)
 	end
 
 end

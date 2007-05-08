@@ -34,6 +34,8 @@ class Environment
 		@pipe = MessagePipe.new
 		@included = []
 		@inbox = []
+		@replies = []
+		@mutex = Mutex.new
 		@sandbox = Sandbox.new
 		@state = [:global].taint
 		@classes = {}.taint
@@ -132,7 +134,9 @@ class Environment
 
 	# synchronize on a mutex for the given name
 	def sync(name, &block)
-		mutex = eval "@#{name}_mutex ||= Mutex.new"
+		@mutex.synchronize do
+			mutex = eval "@#{name}_mutex ||= Mutex.new"
+		end
 		mutex.synchronize &block
 	end
 
@@ -240,17 +244,28 @@ class Environment
 	def handle(message)
 		case message.command
 		when :quit then shutdown!
+		when :reply then handle_reply message
 		when :action then action message.url, message.params
 		else @outbox << [	:no_command, message[:message_id],
 											message.command.to_s, {}]
 		end
 	end
 
+	# handle a GET or POST message reply
+	def handle_reply(message)
+		@replies << message
+	end
+
+	# delete a reply from the incoming array
+	def delete_reply(message)
+		@replies.delete message
+	end
+
 	# call an action on the environment
 	def action(path, params)
-		Thread.new(self) do |env|
-			map_id, action = resolve_path path, params
-			block = resolve_action map_id, action, params
+		Thread.new(self, path, params) do |env,path,params|
+			map_id, action = env.resolve_path path, params
+			block = env.resolve_action map_id, action, params
 			$_params = params
 			env.sandbox &block
 		end
@@ -298,6 +313,24 @@ class Environment
 
 	# send outgoing message to host
 	def send_message(message)
+		command, host, url, params, result, done = message
+		@pipe.write Message.new(command, host, url, params)
+		if [:get, :post].include? command
+			wait_for_reply_to message, result, done
+		end
+		nil
+	end
+
+	# wait for a reply in a new thread
+	def wait_for_reply_to(message, result, status)
+		Thread.new(self) do |env|
+			@replies.each do |reply|
+				next unless reply.replies_to? message
+				env.sync(:replies) { env.delete_reply reply }
+				status << reply[:error] || :ok
+				result << reply
+			end
+		end
 	end
 
 	# map a sub-url pattern
