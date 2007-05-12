@@ -34,7 +34,7 @@ class Sandbox
 		self.taint
 	end
 	def sandbox(&block)
-		untraced do
+		untraced(2) do
 			instance_eval &block
 		end
 	end
@@ -52,7 +52,7 @@ class Sandbox
 		end
 	end
 	def method_missing(id, *args, &block)
-		untraced do
+		untraced(2) do
 			name = id.id2name.to_sym
 			if @_delegates[name]
 				@_delegates[name].send name, *args, &block

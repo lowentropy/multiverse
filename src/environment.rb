@@ -24,11 +24,14 @@ require 'thread'
 require 'sandbox'
 require 'pipe'
 require 'host'
+require 'untrace'
 
 
 # Script environment handles states, functions, classes,
 # messaging, url mapping, sandboxing, and security.
 class Environment
+
+	include Untrace
 
 	# set stuff up, taint some of it
 	def initialize(input=$stdin, output=$stdout)
@@ -85,7 +88,7 @@ class Environment
 	def sandbox(args={}, &block)
 		@sandbox ||= Sandbox.new
 		args.each {|arg,val| @sandbox[arg] = val}
-		return_value = @sandbox.sandbox &block
+		return_value = untraced(1) { @sandbox.sandbox &block }
 		args.each {|arg,val| @sandbox[arg] = nil}
 		return_value
 	end
@@ -125,7 +128,7 @@ class Environment
 	def protect(*args, &block)
 		backup = {}
 		args.each {|arg| backup[arg] = eval "@#{arg}"}
-		return_value = block.call
+		return_value = untraced { block.call }
 		backup.each {|arg,val| eval "@#{arg} = val"}
 		return_value
 	end
@@ -136,29 +139,35 @@ class Environment
 		@mutex.synchronize do
 			mutex = eval "@#{name}_mutex ||= Mutex.new"
 		end
-		mutex.synchronize &block
+		untraced { mutex.synchronize &block }
 	end
 
 	# run the script environment. any errors will be thrown
 	# from self.join.
 	def run
+		@main_thread = Thread.new(self) do |env|
+			env.script_main
+		end
+	end
+
+	# main script loop
+	def script_main
 		@error = []
-		@main_thread = Thread.new(self,@error) do |env,error|
-			sandbox = env.instance_variable_get :@sandbox
-			sandbox[:main_thread] = Thread.current
-			$env = env
-			begin
-				sandbox.sandbox do
+		#untraced do
+			@sandbox[:main_thread] = Thread.current
+			$env = self
+			begin untraced(2,4) do
+				sandbox do
 					until @exit
 						start
 						Thread.pass
 					end
-				end
+				end; end
 			rescue
-				error << $!
+				@error << $!
 			end
-			env.done!
-		end
+		#end
+		done!
 		nil
 	end
 
@@ -180,7 +189,7 @@ class Environment
 		@main_thread.join(timeout) if @main_thread
 		@pipe_thread.join(timeout) if @pipe_thread
 		@io_thread.join(timeout) if @io_thread
-		raise @error[0] if @error[0]
+		fail(@error[0]) if @error[0]
 		nil
 	end
 
@@ -477,10 +486,21 @@ class Environment
 
 	# try to call a script-defined function
 	def method_missing(id, *args, &block)
-		name = id.id2name.to_sym
-		[current_state, :global].each do |state|
-			next unless @functions[state].include? name
-			return sandbox { @functions[state][name].call *args, &block }
+		untraced(5) do
+			name = id.id2name.to_sym
+			[current_state, :global].each do |state|
+				next unless @functions[state].include? name
+				return sandbox do
+					begin
+						@functions[state][name].call *args, &block
+					rescue
+						this = $!.backtrace.find {|line| /`add_script'/ =~ line}
+						index = $!.backtrace.index this
+						$!.backtrace[index].gsub! /`.*'/, "`#{name}'"
+						fail
+					end
+				end
+			end
 		end
 		super id, *args
 	end
