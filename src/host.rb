@@ -41,14 +41,14 @@ class Host
 	end
 
 	def put(url, params={})
-		@env.outbox << [:put, @info, url, params]
+		@env << [:put, @info, url, params]
 		nil
 	end
 
 	def post(url, params={})
 		response = {}
 		status = []
-		@env.outbox << [:post, @info, url, params, response, status]
+		@env << [:post, @info, url, params, response, status]
 		@env.pass until status.any?
 		(status = status[0]) == :ok ? response[0].params : raise(status)
 	end
@@ -56,7 +56,7 @@ class Host
 	def get(url, params={})
 		response = []
 		status = []
-		@env.outbox << :get, @info, url, params, response, status]
+		@env << [:get, @info, url, params, response, status]
 		@env.pass until status.any?
 		(status = status[0]) == :ok ? response[0][:data] : raise(status)
 	end

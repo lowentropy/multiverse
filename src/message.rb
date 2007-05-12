@@ -19,6 +19,11 @@ class Message
 		@params[param] = value
 	end
 
+	def to_s
+		params = @params.map {|k,v| "#{k}=#{v}"}.join("&")
+		"#{command.to_s.upcase} #{host}#{url}?#{params}"
+	end
+
 	def replies_to?(message)
 		(@command == :reply) && (self[:message_id] == message[:message_id])
 	end

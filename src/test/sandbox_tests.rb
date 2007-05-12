@@ -69,21 +69,23 @@ class SandboxTests < Test::Unit::TestCase
 	end
 
 	def test_function
-		val = []
-		fun = proc do
-			val << 216
-		end
-		@sandbox[:fun] = fun
-		@sandbox.fun
-		assert_equal 216, val[0]
+		@sandbox.delegate :foo, self
+		assert_equal 216, @sandbox.foo
+	end
+
+	def foo
+		216
+	end
+	
+	def bar
+		foo
 	end
 
 	def test_two_levels
 		val = []
-		@sandbox[:foo] = proc { val << 216 }
-		@sandbox[:bar] = proc { foo }
-		@sandbox.bar
-		assert_equal 216, val[0]
+		@sandbox.delegate :foo, self
+		@sandbox.delegate :bar, self
+		assert_equal 216, @sandbox.bar
 	end
 
 end

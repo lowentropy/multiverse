@@ -1,3 +1,4 @@
+- remove redundant lines from script backtrace
 - write standalone environment server
 - test new script environment
 - write core http-aware server

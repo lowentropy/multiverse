@@ -30,15 +30,23 @@ class ObjectPipe
 		@in, @out, @unmarshal = input, output, unmarshal
 	end
 	def read
-		len = @in.readline.to_i
-		text = @in.read len
-		@unmarshal.call text
+		begin
+			len = @in.readline.to_i
+			text = @in.read len
+			@unmarshal.call text
+		rescue EOFError => e
+			nil
+		end
 	end
 	def write(object)
 		text = object.marshal
 		@out.puts text.size
 		@out.write text
 		@out.flush
+	end
+	def close
+		@in.close
+		@out.close
 	end
 end
 

@@ -20,27 +20,47 @@
 
 $: << File.dirname(__FILE__)
 
+require 'untrace'
+
 # A sandbox object allows code blocks to run in a
 # clean environment; if the blocks have $SAFE = 4,
 # they are effectively cut off from the rest of
 # the system.
 class Sandbox
+	include Untrace
 	def initialize
+		@_delegates = {}
+		@_root_delegate = nil
 		self.taint
 	end
 	def sandbox(&block)
-		instance_eval &block
+		untraced do
+			instance_eval &block
+		end
 	end
 	def [](key)
 		eval "@#{key}"
 	end
 	def []=(key, value)
-		if value.respond_to? :call
-			mod = Module.new
-			mod.send :define_method, key, &value
-			self.extend mod
+		eval "@#{key} = value"
+	end
+	def delegate(name, object)
+		if name
+			@_delegates[name.to_sym] = object
 		else
-			eval "@#{key} = value"
+			@_root_delegate = object
+		end
+	end
+	def method_missing(id, *args, &block)
+		untraced do
+			name = id.id2name.to_sym
+			if @_delegates[name]
+				@_delegates[name].send name, *args, &block
+			elsif @_root_delegate
+				@_root_delegate.send name, *args, &block
+			else
+				super
+			end
 		end
 	end
 end

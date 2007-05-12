@@ -20,6 +20,7 @@
 
 $: << File.dirname(__FILE__)
 
+require 'thread'
 require 'sandbox'
 require 'pipe'
 require 'host'
@@ -30,13 +31,13 @@ require 'host'
 class Environment
 
 	# set stuff up, taint some of it
-	def initialize
-		@pipe = MessagePipe.new
+	def initialize(input=$stdin, output=$stdout)
+		@pipe = MessagePipe.new input, output
 		@included = []
 		@inbox = []
 		@replies = []
-		@mutex = Mutex.new
 		@sandbox = Sandbox.new
+		@mutex = Mutex.new
 		@state = [:global].taint
 		@classes = {}.taint
 		@functions = {}.taint
@@ -45,7 +46,7 @@ class Environment
 		@outbox = [].taint
 		@url_patterns = {}.taint
 		@listeners = {}.taint
-		state :global {}
+		state(:global) {}
 		start_io_threads
 		add_script_commands
 		add_script_variables
@@ -64,22 +65,20 @@ class Environment
 	# add script-accessible (unsafe) functions
 	def add_script_commands
 		%w(	map current_state resource
-				require k method_missing goto
-				state function fun klass delegate
-				private public params reply).each do |cmd|
-			@sandbox[cmd] = proc {|*args| self.send cmd, *args}
+				require k goto klass delegate
+				state function fun reply pass
+				private public params outbox).each do |cmd|
+			@sandbox.delegate cmd.to_sym, self
+			@sandbox.delegate nil, self
 		end
 	end
 
 	# add script-accessible (unsafe) variables
 	def add_script_variables
-		@sandbox[:outbox] = @outbox
-		@sandbox[:classes] = @classes
-		@sandbox[:functions] = @functions
-		@sandbox[:required] = @required
-		@sandbox[:states] = @state
-		@sandbox[:state] = @state
-		@sandbox[:io_thread] = @io_thread
+		%w(outbox classes functions required
+		   states state io_thread).each do |var|
+			eval "@sandbox[:#{var}] = @#{var}"
+		end
 	end
 
 	# the given block will have no access to the environment
@@ -92,24 +91,23 @@ class Environment
 	end
 
 	# add a script to the environment
-	def add_script(script)
+	def add_script(name, text=nil)
 		# push previous require (depth-first order)
 		protect :required do
-			text = load_script script
+			text ||= load_script name
 			@required = [].taint
 			# repeat until script and dependencies are loaded
 			while true
-				sandbox(:script => script, :text => text) do
+				sandbox(:script => name, :text => text) do
 					error = [].taint
-					# parse text in safe sandbox
-					Thread.new(@script,@text,error) do |script,text,error|
-						$SAFE = 4
+					Thread.new(@script, @text, error, self) do |script,text,error,box|
+						$SAFE = 0
 						begin
-							eval text, nil, script
+							box.instance_eval text, script
 						rescue
 							error << $!
 						end
-					end
+					end.join
 					# bubble real errors
 					unless (error = error[0]).nil?
 						raise error unless error.message == "require"
@@ -134,6 +132,7 @@ class Environment
 
 	# synchronize on a mutex for the given name
 	def sync(name, &block)
+		mutex = nil
 		@mutex.synchronize do
 			mutex = eval "@#{name}_mutex ||= Mutex.new"
 		end
@@ -144,18 +143,21 @@ class Environment
 	# from self.join.
 	def run
 		@error = []
-		@main_thread = Thread.new(self,error) do |env,error|
+		@main_thread = Thread.new(self,@error) do |env,error|
 			sandbox = env.instance_variable_get :@sandbox
 			sandbox[:main_thread] = Thread.current
 			$env = env
 			begin
 				sandbox.sandbox do
-					start until @exit
+					until @exit
+						start
+						Thread.pass
+					end
 				end
-				env.done!
 			rescue
 				error << $!
 			end
+			env.done!
 		end
 		nil
 	end
@@ -174,10 +176,10 @@ class Environment
 
 	# join the environment's main thread. calls to join block
 	# and may throw exceptions from scripts.
-	def join
-		@main_thread.join if @main_thread
-		@io_thread.join if @io_thread
-		@pipe_thread.join if @pipe_thread
+	def join(timeout=nil)
+		@main_thread.join(timeout) if @main_thread
+		@pipe_thread.join(timeout) if @pipe_thread
+		@io_thread.join(timeout) if @io_thread
 		raise @error[0] if @error[0]
 		nil
 	end
@@ -197,33 +199,40 @@ class Environment
 
 	# threads exit when shutdown signalled and scripts exit
 	def shutdown?
-		@shutdown && @finished
+		@shutdown && @done
 	end
 
 	# pipe reader
 	def pipe_main
 		until shutdown?
 			message = @pipe.read
-			sync :inbox do
-				@inbox << message
+			if message
+				sync :inbox do
+					@inbox << message
+				end
 			end
+			Thread.pass
 		end
+		Thread.exit
+		@pipe_closed = true
 	end
 
 	# io processing loop
 	def io_main
-		until shutdown?
+		until shutdown? && @pipe_closed
 			handle_messages
 			send_messages
-			flush
+			Thread.pass
 		end
+		@pipe.close
+		Thread.exit
 	end
 
 	# handle messages in inbox
 	def handle_messages
 		until @inbox.empty?
-			sync :inbox do
-				message = @inbox.shift
+			message = sync :inbox do
+				@inbox.shift
 			end
 			next unless message
 			handle message
@@ -233,8 +242,8 @@ class Environment
 	# send messages from outbox
 	def send_messages
 		until @outbox.empty?
-			sync :outbox do
-				message = @outbox.shift
+			message = sync :outbox do
+				@outbox.shift
 			end
 			send_message message
 		end
@@ -284,24 +293,24 @@ class Environment
 	# resolve part of a path
 	def resolve_part(map_id, part, path, params)
 		if @url_patterns[map_id].nil?
-			return host_error :no_path, path, params
+			return host_error(:no_path, path, params)
 		end
 		ids = @url_patterns[map_id].keys.select do |pattern|
 			pattern =~ part
 		end
 		if ids.empty?
-			return host_error :no_path, path, params
+			return(host_error :no_path, path, params)
 		elsif ids.size > 1
-			return host_error :ambiguous_path, path, params
+			return(host_error :ambiguous_path, path, params)
 		else
-			return ids.shift
+			return(ids.shift)
 		end
 	end
 
 	# resolve action name in map context into block
 	def resolve_action(map_id, action, params)
 		block = env.listeners[map_id][action]
-		return host_error :no_action, path, params if block.nil?
+		return host_error(:no_action, path, params) if block.nil?
 		return block
 	end
 
@@ -395,7 +404,7 @@ class Environment
 			@listeners[map_id] ||= {}.taint
 			@listeners[map_id][name] = [block, @protection_level]
 		else
-			@functions[current_state][name] = &block
+			@functions[current_state][name] = block
 		end
 	end
 	alias :fun :function
@@ -448,6 +457,18 @@ class Environment
 		$_params
 	end
 
+	# add something safely to outbox array
+	def <<(message)
+		sync :outbox do
+			@outbox << message
+		end
+	end
+
+	# thread pass
+	def pass
+		Thread.pass
+	end
+
 	# reply to a GET or POST
 	def reply(params = {})
 		params[:message_id] = $_params[:message_id]
@@ -455,11 +476,11 @@ class Environment
 	end
 
 	# try to call a script-defined function
-	def method_missing(id, *args)
+	def method_missing(id, *args, &block)
 		name = id.id2name.to_sym
 		[current_state, :global].each do |state|
 			next unless @functions[state].include? name
-			return sandbox { @functions[state].call *args }
+			return sandbox { @functions[state][name].call *args, &block }
 		end
 		super id, *args
 	end
