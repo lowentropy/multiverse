@@ -1,5 +1,7 @@
 $: << File.dirname(__FILE__)
 
+require 'uid'
+
 class Message
 
 	attr_accessor :command, :host, :url
@@ -8,7 +10,8 @@ class Message
 		@command = command
 		@host = host
 		@url = url
-		@params = params
+		@params = params || {}
+		@params[:message_id] ||= UID.random
 	end
 
 	def [](param)

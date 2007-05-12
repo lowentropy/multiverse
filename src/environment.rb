@@ -67,7 +67,7 @@ class Environment
 
 	# add script-accessible (unsafe) functions
 	def add_script_commands
-		%w(	map current_state resource
+		%w(	map current_state resource req
 				require k goto klass delegate
 				state function fun reply pass
 				private public params outbox).each do |cmd|
@@ -93,33 +93,50 @@ class Environment
 		return_value
 	end
 
+	# load a script file
+	def load_script(name)
+		File.read name
+	end
+
 	# add a script to the environment
 	def add_script(name, text=nil)
-		# push previous require (depth-first order)
-		protect :required do
-			text ||= load_script name
-			@required = [].taint
-			# repeat until script and dependencies are loaded
-			while true
-				sandbox(:script => name, :text => text) do
-					error = [].taint
-					Thread.new(@script, @text, error, self) do |script,text,error,box|
-						$SAFE = 0
-						begin
-							box.instance_eval text, script
-						rescue
-							error << $!
+		untraced(2) do
+			# push previous require (depth-first order)
+			protect :required do
+				text ||= load_script name
+				@required = [].taint
+				# repeat until script and dependencies are loaded
+				while true
+					sandbox(:script => name, :text => text) do
+						error = [].taint
+						Thread.new(@script, @text, error, self) do |script,text,error,box|
+							$SAFE = 0
+							begin
+								box.untraced(0,3) do
+									begin
+										box.instance_eval text, script
+									rescue Exception => e
+										box.rename_backtrace e, '(toplevel)'
+										fail e
+									end
+								end
+							rescue
+								error << $!
+							end
+						end.join
+						# bubble real errors
+						unless (error = error[0]).nil?
+							raise error unless error.message == "require"
 						end
-					end.join
-					# bubble real errors
-					unless (error = error[0]).nil?
-						raise error unless error.message == "require"
+					end
+					# load required files
+					break if @required.empty?
+					until @required.empty?
+						to_include = @required.shift
+						add_script to_include
+						@included << to_include
 					end
 				end
-				# load required files
-				break if @required.empty?
-				add_script @required.shift until @required.empty?
-				@included << script
 			end
 		end
 	end
@@ -128,7 +145,7 @@ class Environment
 	def protect(*args, &block)
 		backup = {}
 		args.each {|arg| backup[arg] = eval "@#{arg}"}
-		return_value = untraced { block.call }
+		return_value = untraced(2) { block.call }
 		backup.each {|arg,val| eval "@#{arg} = val"}
 		return_value
 	end
@@ -139,7 +156,7 @@ class Environment
 		@mutex.synchronize do
 			mutex = eval "@#{name}_mutex ||= Mutex.new"
 		end
-		untraced { mutex.synchronize &block }
+		untraced(2) { mutex.synchronize &block }
 	end
 
 	# run the script environment. any errors will be thrown
@@ -153,20 +170,18 @@ class Environment
 	# main script loop
 	def script_main
 		@error = []
-		#untraced do
-			@sandbox[:main_thread] = Thread.current
-			$env = self
-			begin untraced(2,4) do
-				sandbox do
-					until @exit
-						start
-						Thread.pass
-					end
-				end; end
-			rescue
-				@error << $!
-			end
-		#end
+		@sandbox[:main_thread] = Thread.current
+		$env = self
+		begin untraced(2,4) do
+			sandbox do
+				until @exit
+					start
+					Thread.pass
+				end
+			end; end
+		rescue
+			@error << $!
+		end
 		done!
 		nil
 	end
@@ -265,7 +280,7 @@ class Environment
 		when :reply then handle_reply message
 		when :action then action message.url, message.params
 		else @outbox << [	:no_command, message[:message_id],
-											message.command.to_s, {}]
+											message.command.to_s]
 		end
 	end
 
@@ -284,8 +299,14 @@ class Environment
 		Thread.new(self, path, params) do |env,path,params|
 			map_id, action = env.resolve_path path, params
 			block = env.resolve_action map_id, action, params
-			$_params = params
-			env.sandbox &block
+			if block
+				$_params = params
+				begin
+					env.sandbox &block
+				rescue Exception => e
+					reply :error => format_error(e)
+				end
+			end
 		end
 	end
 
@@ -295,6 +316,7 @@ class Environment
 		map_id = parts.shift
 		while parts.size > 1
 			map_id = resolve_part map_id, parts.shift, path, params
+			return nil, nil unless map_id
 		end
 		return map_id, parts.shift
 	end
@@ -302,7 +324,7 @@ class Environment
 	# resolve part of a path
 	def resolve_part(map_id, part, path, params)
 		if @url_patterns[map_id].nil?
-			return host_error(:no_path, path, params)
+			return(host_error :no_path, path, params)
 		end
 		ids = @url_patterns[map_id].keys.select do |pattern|
 			pattern =~ part
@@ -318,8 +340,9 @@ class Environment
 
 	# resolve action name in map context into block
 	def resolve_action(map_id, action, params)
+		return nil unless map_id && action
 		block = env.listeners[map_id][action]
-		return host_error(:no_action, path, params) if block.nil?
+		host_error(:no_action, path, params) if block.nil?
 		return block
 	end
 
@@ -327,6 +350,11 @@ class Environment
 	def host_error(error, path, params)
 		@outbox << [error, nil, path, params]
 		nil
+	end
+
+	# format an action error into something to send as a reply
+	def format_error(error)
+		"#{error}\n" + (error.backtrace.map{|l| "\t#{l}"}).join('\n')
 	end
 
 	# send outgoing message to host
@@ -367,7 +395,7 @@ class Environment
 		protect :map_id, :protection_level do
 			@map_id = prefix
 			@protection_level = :public
-			@outbox << [:host, msg(:map, :prefix => prefix)]
+			@outbox << [:map, nil, prefix, {}]
 			sandbox &block
 		end
 	end
@@ -388,6 +416,8 @@ class Environment
 			raise "require"
 		end
 	end
+
+	alias :req :require
 
 	# map a host url pattern
 	def map(arg, &block)
@@ -410,8 +440,8 @@ class Environment
 	# as a message handler
 	def function(name, &block)
 		if @map_id
-			@listeners[map_id] ||= {}.taint
-			@listeners[map_id][name] = [block, @protection_level]
+			@listeners[@map_id] ||= {}.taint
+			@listeners[@map_id][name] = [block, @protection_level]
 		else
 			@functions[current_state][name] = block
 		end
@@ -493,11 +523,9 @@ class Environment
 				return sandbox do
 					begin
 						@functions[state][name].call *args, &block
-					rescue
-						this = $!.backtrace.find {|line| /`add_script'/ =~ line}
-						index = $!.backtrace.index this
-						$!.backtrace[index].gsub! /`.*'/, "`#{name}'"
-						fail
+					rescue Exception => e
+						self.rename_backtrace e, name
+						fail e
 					end
 				end
 			end

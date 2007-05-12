@@ -6,12 +6,14 @@ module Untrace
 	def untraced(extra=0,before=0,&block)
 		begin
 			yield
-		rescue
+		rescue Exception => e
 			# most recent first (smaller index)
-			this = $!.backtrace.find {|line| /untraced/ =~ line}
-			index = $!.backtrace.index this
-			$!.backtrace[index-extra,2+extra+before] = []
-			fail
+			unless @full_trace
+				this = e.backtrace.find {|line| /untraced/ =~ line}
+				index = e.backtrace.index this
+				e.backtrace[index-extra,2+extra+before] = []
+			end
+			fail e
 		end
 	end
 end

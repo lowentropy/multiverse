@@ -2,6 +2,7 @@ $: << File.expand_path(File.dirname(__FILE__) + '/..')
 
 require 'test/unit'
 require 'untrace'
+require 'environment'
 
 
 class UntraceTests < Test::Unit::TestCase
@@ -9,7 +10,7 @@ class UntraceTests < Test::Unit::TestCase
 	include Untrace
 
 	def foo
-		untraced do
+		untraced(1) do
 			bar
 		end
 	end
@@ -30,4 +31,27 @@ class UntraceTests < Test::Unit::TestCase
 		end
 	end
 
+	def test_env_untrace
+		begin
+			@env = Environment.new
+			@env.add_script 'test', <<END
+fun :foo do	
+	raise "foo"
+end
+fun :bar do
+	foo
+end
+fun :baz do
+	bar
+end
+END
+			@env.baz
+		rescue RuntimeError => e
+			assert_equal "test:2:in `foo'", e.backtrace[0]
+			assert_equal "test:5:in `bar'", e.backtrace[1]
+			assert_equal "test:8:in `baz'", e.backtrace[2]
+		else
+			assert false, "should have had error"
+		end
+	end
 end

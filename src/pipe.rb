@@ -30,6 +30,7 @@ class ObjectPipe
 		@in, @out, @unmarshal = input, output, unmarshal
 	end
 	def read
+		return nil unless @in
 		begin
 			len = @in.readline.to_i
 			text = @in.read len
@@ -39,6 +40,7 @@ class ObjectPipe
 		end
 	end
 	def write(object)
+		return unless @out
 		text = object.marshal
 		@out.puts text.size
 		@out.write text

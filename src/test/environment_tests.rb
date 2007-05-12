@@ -33,8 +33,8 @@ class EnvironmentTests < Test::Unit::TestCase
 	def test_pipe_out_external
 		$env = @env
 		@env.run
-		"foo".to_host.put '/test', :param => 'value'
-		assert_equal "PUT foo/test?param=value", @pipe.read.to_s
+		"foo".to_host.put '/test', :param => 'value', :message_id => 0
+		assert_equal "PUT foo/test?param=value&message_id=0", @pipe.read.to_s
 		@env.shutdown!
 		@env.join 0
 	end
@@ -42,12 +42,12 @@ class EnvironmentTests < Test::Unit::TestCase
 	def test_pipe_out_internal
 		@env.add_script 'test', <<END
 fun :test do
-	'foo'.to_host.put '/test', :param => 'value'
+	'foo'.to_host.put '/test', :param => 'value', :message_id => 0
 end
 END
 		@env.run
 		@env.test
-		assert_equal "PUT foo/test?param=value", @pipe.read.to_s
+		assert_equal "PUT foo/test?param=value&message_id=0", @pipe.read.to_s
 		@env.shutdown!
 		@env.join 0
 	end

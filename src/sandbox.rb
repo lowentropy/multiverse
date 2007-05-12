@@ -51,6 +51,11 @@ class Sandbox
 			@_root_delegate = object
 		end
 	end
+	def rename_backtrace(error, name, from="`add_script'")
+		this = error.backtrace.find {|line| /#{from}/ =~ line}
+		index = error.backtrace.index this
+		error.backtrace[index].gsub! /`.*'/, "`#{name}'"
+	end
 	def method_missing(id, *args, &block)
 		untraced(2) do
 			name = id.id2name.to_sym

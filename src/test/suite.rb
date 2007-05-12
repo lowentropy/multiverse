@@ -6,6 +6,7 @@ require 'message_tests'
 require 'sandbox_tests'
 require 'environment_tests'
 require 'untrace_tests'
+require 'script_tests'
 
 class MVTestSuite
 	def self.suite
@@ -14,6 +15,7 @@ class MVTestSuite
 		suite << SandboxTests.suite
 		suite << EnvironmentTests.suite
 		suite << UntraceTests.suite
+		suite << ScriptTests.suite
 		return suite
 	end
 end
