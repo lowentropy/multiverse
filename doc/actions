@@ -1,3 +1,26 @@
+HOST COMMANDS:
+
+no_command
+no_path
+ambiguous_path
+no_action
+get
+put
+post
+reply
+map
+
+
+ENVIRONMENT COMMANDS:
+
+quit
+reply
+action
+load
+
+
+SCRIPT URLS:
+
 /host/add
 /host/ping
 /host/echo
