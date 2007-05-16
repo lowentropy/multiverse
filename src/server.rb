@@ -2,32 +2,12 @@
 
 $: << File.dirname(__FILE__)
 
-require 'webrick'
 require 'net/http'
-
-
-# servlet class
-class Servlet < WEBrick::HTTPServlet::AbstractServlet
-	def initialize(server, mv)
-		@server, @mv = server, mv
-	end
-	def self.get_instance(server, mv)
-		mv.servlet server
-	end
-	def do_GET(req, res)
-		@mv.handle_get req, res
-	end
-	def do_PUT(req, res)
-		@mv.handle_put req, res
-	end
-	def do_POST(req, res)
-		@mv.handle_post req, res
-	end
-end
+require 'mongrel'
 
 
 # The multiverse server. Runs WEBrick.
-class Server 
+class Server  < Mongrel::HttpHandler
 
 	def initialize(options={})
 		@options = options
@@ -36,11 +16,6 @@ class Server
 		@options[:default_env] ||= :host
 		@environments = {}
 		@pipe_threads = []
-	end
-
-	# get the singleton servlet instance
-	def servlet(server)
-		@servlet ||= Servlet.new(server, self)
 	end
 
 	# hook an in-memory environment into this server
@@ -79,10 +54,10 @@ class Server
 	# start the server
 	def start
 		@shutdown = false
-		@http = WEBrick::HTTPServer.new @options
-		@http.mount '/', Servlet, self
-		trap('INT') { @http.shutdown }
-		@thread = Thread.new(@http) {|http| http.start}
+		@http = Mongrel::HttpServer.new '0.0.0.0', options[:port].to_s
+		@http.register "/", self
+		@thread = @http.run
+		trap('INT') { @http.stop }
 	end
 
 	# start a handler thread for the given message pipe
@@ -100,7 +75,7 @@ class Server
 
 	# shut down the server
 	def shutdown
-		@http.shutdown
+		@http.stop
 		@shutdown = true
 	end
 
@@ -122,6 +97,7 @@ class Server
 		when :ambiguous_path
 			env_err(msg)
 		when :get
+			data = get msg.host, msg.url, msg.params
 			# TODO
 		when :put
 			# TODO
@@ -130,6 +106,21 @@ class Server
 		when :reply
 			@env_replies << msg
 		when :map
+		end
+	end
+
+	# error from the environment
+	def env_err(msg)
+	end
+
+	# process HTTP request
+	def process(request, response)
+		reply = {}
+		method = request["REQUEST_METHOD"].downcase
+		code, body = self.send "handle_#{method}", request, reply
+		response.start(code) do |head,out|
+			head.merge! reply
+			out.write body
 		end
 	end
 
@@ -150,20 +141,18 @@ class Server
 
 	# submit a GET request; blocks and waits for data
 	def get(host, path, params={})
-		# TODO
 		req = Net::HTTP::Get.new(path)
 		req.set_form_data params
 		res = Net::HTTP.start(*host.info) {|http| http.request req}
-		return res.body
+		return res.code.to_i, res.body
 	end
 
 	# submit a PUT request; does not block
 	def put(host, path, params={})
-		# TODO
 		req = Net::HTTP::Put.new(path)
 		req.set_form_data params
 		res = Net::HTTP.start(*host.info {|http| http.request req}
-		return nil
+		return res.code.to_i
 	end
 
 	# submit a POST request; blocks and waits for reply message
@@ -172,7 +161,7 @@ class Server
 		req = Net::HTTP::Post.new(path)
 		req.set_form_data params
 		res = Net::HTTP.start(*host.info {|http| http.request req}
-		return res
+		return res.code, res.body
 	end
 
 end
