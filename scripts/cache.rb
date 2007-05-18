@@ -3,14 +3,17 @@ container(/cache/, Cache) do
 	private
 
 	index		{ @items.keys }
-	find		{|uid| @items[uid] || CacheItem.load(uid) }
+	find		{|uid| Item.new uid }
 	add			{|item| @items[item.uid] = item }
 	delete	{|item| @items.delete item.uid }
 
 	entity(/UID/, Item) do |uid|
 		new		{ edit params }
-		get		{ params[:partial] ? info : body }
 		edit	{ update params, :data, :owner }
+		get do
+			@last_use = Time.now
+			params[:partial] ? info : body
+		end
 	end
 
 end
@@ -31,16 +34,19 @@ end
 
 class Cache::Item
 	attr_reader :uid, :last_use
-	before_filter do
+	def initialize(uid)
+		@uid = uid
 		@last_use = Time.now
+		@loaded = false
 	end
 	def info
-		attributes :uid, :owner }
+		attributes :uid, :owner
 	end
 	def to_hash
 		info.merge :data => @data
 	end
 	def body
+		self.load
 		@data
 	end
 	def <=>(item)
@@ -49,7 +55,7 @@ class Cache::Item
 	def store
 		file(@uid).write(hash)
 	end
-	def self.load(uid)
-		self.new.new file(uid).read
+	def load
+		# TODO: load from file(uid).read
 	end
 end

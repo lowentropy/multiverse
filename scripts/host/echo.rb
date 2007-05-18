@@ -18,13 +18,52 @@
 #
 
 
-# http://HOST/host/echo
-map :host do
-	fun :echo do
-		reply params
+entity(/host/, LocalHost) do
+	
+	public
+
+	get do
+		info
 	end
-private
-	fun :send_echo do
-		reply params[:host].to_host.post(params)
+
+	behavior(/echo/) do
+		{:text => params[:text}}
 	end
+
+	private
+	
+	edit do
+		update params
+	end
+
+	new do
+		@visible = true
+	end
+
+	delete do
+		@visible = false
+	end
+
+end
+
+
+class LocalHost
+
+	attr_reader :uid, :port
+
+	def initialize
+		@params = file(:host).read.as_yaml
+		@visible = true
+	end
+
+	def update(params={})
+		%w(uid port).each do |param|
+			eval "@#{param} = @params[:#{@param}] if @params[:#{@param}]"
+		end
+	end
+
+	def info
+		@visible ? @params : forbidden
+	end
+	
 end

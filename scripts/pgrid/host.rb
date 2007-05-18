@@ -111,19 +111,6 @@ klass :PGridHost do
 		end
 	end
 
-	# extend prefix and add ref to other host
-	def extend_prefix(bit, grid)
-		ptr = prefix + (1 - bit).to_s
-		@prefix += bit.to_s
-		pointers[ptr] ||= []
-		pointers[ptr] << grid.host_uid.to_bitstring
-	end
-
-	# whether this grid should handle this uid
-	def handles?(uid)
-		uid.to_bitstring[0,prefix.size] == prefix
-	end
-
 	# TODO: get from config
 	def require_cache_sigs?
 		false
