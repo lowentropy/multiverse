@@ -534,3 +534,13 @@ class Environment
 	end
 
 end
+
+class String
+	def constantize
+		begin
+			eval self
+		rescue
+			self
+		end
+	end
+end

@@ -7,7 +7,6 @@ collection(/grid/, PGrid) do
 	index	{ info }
 	find	{|uid| Item.new uid, self }
 	add		{|item| handle?(item.uid) ? cache.add(item) : item.redirect}
-	behavior(/swap/) { swap params }
 
 	entity(/UID/, Item) do |uid|
 		new			{ cached.new }
@@ -16,12 +15,14 @@ collection(/grid/, PGrid) do
 		delete	{ owner? ? cached.delete : forbidden }
 	end
 
+	behavior(/swap/) { swap params }
+
 end
 
 
 # COLLETION class
 
-class PGrid
+model :PGrid do
 
 	# TODO: get UID from params on reconstruction
 	attr_reader :prefix, :uid
@@ -77,7 +78,8 @@ end
 
 # ENTITY class
 
-class PGrid::Item
+model :PGrid do
+	model :Item do
 
 	def initialize(uid, grid)
 		@uid = uid
@@ -103,4 +105,5 @@ class PGrid::Item
 		end
 	end
 
+end
 end
