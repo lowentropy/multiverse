@@ -20,12 +20,13 @@ collection(/grid/, PGrid) do
 end
 
 
-# COLLETION class
+# COLLECTION class
 
 model :PGrid do
 
-	# TODO: get UID from params on reconstruction
 	attr_reader :prefix, :uid
+
+	@@attributes = [:uid, :prefix, :links]
 
 	def initialize(uid)
 		@prefix = ''
@@ -34,7 +35,11 @@ model :PGrid do
 	end
 
 	def info
-		{ :prefix => @prefix }
+		to_yaml
+	end
+
+	def reconstruct(params)
+		self.model.from_yaml params
 	end
 
 	def cache
@@ -69,17 +74,14 @@ model :PGrid do
 		uid.to_bitstring[0,prefix.size] == prefix
 	end
 
-	def self.reconstruct(params)
-		# TODO
-	end
-
 end
 
 
 # ENTITY class
 
-model :PGrid do
-	model :Item do
+model :Item do
+
+	collection :PGrid
 
 	def initialize(uid, grid)
 		@uid = uid
@@ -105,5 +107,4 @@ model :PGrid do
 		end
 	end
 
-end
 end
