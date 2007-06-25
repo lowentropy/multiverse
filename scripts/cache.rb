@@ -1,13 +1,28 @@
+# container: regex and model class, match objects
+#
 container(/cache/, Cache) do
 
 	private
+
+	# index: obtain viewable list of container contents
+	# find: obtain entity object from parameters
+	# add: add a new item to the container
+	# delete: remove the given item
+	# entity: define the entity class for the container
 
 	index		{ @items.keys }
 	find		{|uid| Item.new uid }
 	add			{|item| @items[item.uid] = item }
 	delete	{|item| @items.delete item.uid }
 
+
+	# entity: regex and model class, match objects
+
 	entity(/UID/, Item) do |uid|
+
+		# new: create a new object from params
+		# edit: update data with params
+		# get: obtain viewable information about entity
 		new		{ edit params }
 		edit	{ update params, :data, :owner }
 		get do
