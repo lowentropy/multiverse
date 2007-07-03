@@ -1,5 +1,4 @@
 # container: regex and model class, match objects
-#
 container(/cache/, Cache) do
 
 	private
@@ -18,7 +17,9 @@ container(/cache/, Cache) do
 
 	# entity: regex and model class, match objects
 
-	entity(/UID/, Item) do |uid|
+	entity(/(UID)/, Item) do
+
+		path :uid
 
 		# new: create a new object from params
 		# edit: update data with params
