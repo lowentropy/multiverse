@@ -6,15 +6,20 @@ collection(/grid/, PGrid) do
 	public
 	# local dispatcher will not throw priv errors
 
-	index	{ info }
+	index	{ render }
 	# this action is a block that is called instance_eval on a singleton
 	# instance of the class PGrid; a session key is provided which allows
 	# local access to things like the current match values
+	#
+	# render will take the REST return type and try to convert the
+	# instance into that and then render and return it
 
 	find	{|uid| Item.new uid, self }
 	# an entity def's path values are used to get the match values as in
 	# any collection action, but in this case called with the *entity's*
 	# match values as parameters
+	#
+	# constants should be looked up inside the anonymous module
 
 	add		{|item| handle?(item.uid) ? cache.add(item) : item.redirect}
 	# *after* the item has been constructed, this is called
@@ -49,26 +54,25 @@ end
 # COLLECTION class
 class PGrid
 
-	attr_reader :prefix, :uid
+	attributes :uid, :prefix, :links
+	# render action will try to use these to serialize the object
+	#
+	# also should add attr_accessor's.
+	#
+	# also creates a reconstruct method that
+	# calls an empty initializer and sets the params
+	#
+	# should add a to_params method too
 
-	@@attributes = [:uid, :prefix, :links]
-
-	def initialize(uid)
-		@prefix = ''
-		@uid = uid || host[:uid]
-		@links = {@prefix => [host]}
-	end
-
-	def info
-		to_yaml
-	end
-
-	def reconstruct(params)
-		self.model.from_yaml params
+	def initialize(uid=nil)
+		self.prefix = ''
+		self.uid = uid || host[:uid]
+		self.links = {@prefix => [host]}
 	end
 
 	def cache
 		'/cache/'.to_collection
+		# this produces a collection-api wrapper to a partial reference (def. lh)
 	end
 
 	# specialize domain against another pgrid
@@ -107,6 +111,10 @@ end
 class Item
 
 	collection :PGrid
+	# this should not have to be called...
+	# it will be added when coll.entity is claled
+
+	# wait... where is the data?
 
 	def initialize(uid, grid)
 		@uid = uid
@@ -124,11 +132,12 @@ class Item
 	def redirect
 		target = @grid.handler_for uid
 		redirect target[url], :handlers => hosts
+		# what does this do?
 	end
 
 	def publish
 		@grid.handlers_for(uid).each do |host|
-			host[url].edit to_params
+			host[url].update to_params
 		end
 	end
 

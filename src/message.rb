@@ -6,7 +6,7 @@ class Message
 
 	attr_accessor :command, :host, :url
 
-	def initialize(command, host, url, params)
+	def initialize(command, host='localhost', url='/', params={})
 		@command = command
 		@host = host
 		@url = url
@@ -20,6 +20,10 @@ class Message
 
 	def []=(param, value)
 		@params[param] = value
+	end
+
+	def delete(param)
+		@params.delete param
 	end
 
 	def to_s

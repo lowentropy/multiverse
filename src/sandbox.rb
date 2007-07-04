@@ -25,25 +25,31 @@ require 'untrace'
 # A sandbox object allows code blocks to run in a
 # clean environment; if the blocks have $SAFE = 4,
 # they are effectively cut off from the rest of
-# the system.
+# the system, while the sandbox itself is tainted.
 class Sandbox
+
 	include Untrace
+
 	def initialize
 		@_delegates = {}
 		@_root_delegate = nil
 		self.taint
 	end
+
 	def sandbox(&block)
 		untraced(2) do
 			instance_eval &block
 		end
 	end
+
 	def [](key)
 		eval "@#{key}"
 	end
+
 	def []=(key, value)
 		eval "@#{key} = value"
 	end
+
 	def delegate(name, object)
 		if name
 			@_delegates[name.to_sym] = object
@@ -51,11 +57,13 @@ class Sandbox
 			@_root_delegate = object
 		end
 	end
+
 	def rename_backtrace(error, name, from="`add_script'")
 		this = error.backtrace.find {|line| /#{from}/ =~ line}
 		index = error.backtrace.index this
 		error.backtrace[index].gsub! /`.*'/, "`#{name}'"
 	end
+
 	def method_missing(id, *args, &block)
 		untraced(2) do
 			name = id.id2name.to_sym

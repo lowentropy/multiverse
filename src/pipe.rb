@@ -26,9 +26,11 @@ require 'message'
 # Objects to be sent over pipe should have marshal
 # and unmarshal methods
 class ObjectPipe
+
 	def initialize(input=$stdin, output=$stdout, &unmarshal)
 		@in, @out, @unmarshal = input, output, unmarshal
 	end
+
 	def read
 		return nil unless @in
 		begin
@@ -39,6 +41,7 @@ class ObjectPipe
 			nil
 		end
 	end
+
 	def write(object)
 		return unless @out
 		text = object.marshal
@@ -46,6 +49,7 @@ class ObjectPipe
 		@out.write text
 		@out.flush
 	end
+
 	def close
 		@in.close
 		@out.close

@@ -198,7 +198,7 @@ class Environment
 		raise "operation not allowed globally"
 	end
 
-	# join the environment's main thread. calls to join block
+	# join the environment's main thread. calls to join may block
 	# and may throw exceptions from scripts.
 	def join(timeout=nil)
 		@main_thread.join(timeout) if @main_thread

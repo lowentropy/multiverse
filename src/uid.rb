@@ -11,7 +11,7 @@ class UID
 	# generate a random 64-bit number, rendered
 	# as a 16-character hex string
 	def self.random
-		'%016X' % [rand(2 ** 64)]
+		'%032X' % [rand(2 ** 128)]
 	end
 
 end

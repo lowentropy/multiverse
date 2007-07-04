@@ -2,6 +2,7 @@
 
 $: << File.dirname(__FILE__)
 
+require 'rubygems'
 require 'net/http'
 require 'mongrel'
 
@@ -54,7 +55,7 @@ class Server  < Mongrel::HttpHandler
 	# start the server
 	def start
 		@shutdown = false
-		@http = Mongrel::HttpServer.new '0.0.0.0', options[:port].to_s
+		@http = Mongrel::HttpServer.new '0.0.0.0', @options[:port].to_s
 		@http.register "/", self
 		@thread = @http.run
 		trap('INT') { @http.stop }
@@ -151,7 +152,7 @@ class Server  < Mongrel::HttpHandler
 	def put(host, path, params={})
 		req = Net::HTTP::Put.new(path)
 		req.set_form_data params
-		res = Net::HTTP.start(*host.info {|http| http.request req}
+		res = Net::HTTP.start(*host.info) {|http| http.request req}
 		return res.code.to_i
 	end
 
@@ -160,7 +161,7 @@ class Server  < Mongrel::HttpHandler
 		# TODO
 		req = Net::HTTP::Post.new(path)
 		req.set_form_data params
-		res = Net::HTTP.start(*host.info {|http| http.request req}
+		res = Net::HTTP.start(*host.info) {|http| http.request req}
 		return res.code, res.body
 	end
 
