@@ -33,6 +33,8 @@ class Environment
 
 	include Untrace
 
+	attr_accessor :name
+
 	# set stuff up, taint some of it
 	def initialize(input=$stdin, output=$stdout)
 		@pipe = MessagePipe.new input, output

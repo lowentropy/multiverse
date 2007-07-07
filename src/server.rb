@@ -15,6 +15,7 @@ class Server  < Mongrel::HttpHandler
 		@options[:port] ||= 4000
 		@options[:default_lang] ||= :ruby
 		@options[:default_env] ||= :host
+		@pipes = {}
 		@environments = {}
 		@pipe_threads = []
 	end
@@ -25,16 +26,23 @@ class Server  < Mongrel::HttpHandler
 		host_in, env_out = IO.pipe
 		env.set_io env_in, env_out
 		pipe = MessagePipe.new host_in, host_out
-		@environments[name] = pipe
+		add_env name, env, pipe
 		start_pipe_thread pipe
+	end
+
+	# add an environment and its pipe. name the env.
+	def add_env(name, env, pipe)
+		@pipes[name] = pipe
+		@environments[name] = env
+		env.name = name
 	end
 
 	# load a script into an environment. start the
 	# environment if it doesn't exist yet
 	def load(env=@options[:default_env], options={}, *scripts)
-		create(env, options) unless @environments[env]
+		create(env, options) unless @pipes[env]
 		scripts.each do |script|
-			@environments[env].write Message.new(:load, nil, script)
+			@pipes[env].write Message.new(:load, nil, script)
 		end
 	end
 
@@ -48,7 +56,7 @@ class Server  < Mongrel::HttpHandler
 		end
 		io = IO.popen(command, 'w+')
 		pipe = MessagePipe.new io, io
-		@environments[name] = pipe
+		add_env name, env, pipe
 		start_pipe_thread pipe
 	end
 
@@ -98,46 +106,47 @@ class Server  < Mongrel::HttpHandler
 		when :ambiguous_path
 			env_err(msg)
 		when :get
+			# TODO: IMHERE
 			data = get msg.host, msg.url, msg.params
 			# TODO
 		when :put
 			# TODO
 		when :post
 			# TODO
+		when :delete
+			# TODO
 		when :reply
 			@env_replies << msg
 		when :map
+			# TODO
 		end
 	end
 
 	# error from the environment
-	def env_err(msg)
+	def env_err(env, msg)
+		puts "#{env.name}: #{msg}"
 	end
 
 	# process HTTP request
 	def process(request, response)
-		reply = {}
-		method = request["REQUEST_METHOD"].downcase
-		code, body = self.send "handle_#{method}", request, reply
+		code, body = handle request
 		response.start(code) do |head,out|
-			head.merge! reply
+			#head.merge! reply
 			out.write body
 		end
 	end
 
-	# handle a GET request; response body is raw data
-	def handle_get(request, response)
-		# TODO
-	end
-
-	# handle a PUT request; asynchronous message
-	def handle_put(request, response)
-		# TODO
-	end
-
-	# handle a POST request; synchronous function call
-	def handle_post(request, response)
-		# TODO
+	# handle an HTTP request; return code, body
+	def handle(request)
+		env = handler_for request.url
+		method = request['REQUEST_METHOD'].downcase.to_sym
+		reply = env.write Message.new(method, nil, request.url, request.params)
+		if reply[:error]
+			env_err env, reply[:error]
+			[500, reply[:error]]
+		else
+			[reply[:code], reply[:body]]
+		end
 	end
 
 	# submit a GET request; blocks and waits for data
