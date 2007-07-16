@@ -7,7 +7,7 @@ require 'test/unit'
 class MessageTests < Test::Unit::TestCase
 
 	def setup
-		@msg = Message.new :foo, 'bar', 'baz', {}
+		@msg = Message.new :foo, 'bar'.to_host, 'baz', {}
 	end
 
 	def reload
@@ -34,7 +34,7 @@ class MessageTests < Test::Unit::TestCase
 		@msg[:param_2] = 'def'
 		msg = reload
 		assert_equal :foo, msg.command
-		assert_equal 'bar', msg.host
+		assert_equal 'bar:4000', msg.host.to_s
 		assert_equal 'baz', msg.url
 		assert_equal 'abc', msg[:param_1]
 		assert_equal 'def', msg[:param_2]
@@ -44,7 +44,7 @@ class MessageTests < Test::Unit::TestCase
 		@msg.host = "the\nhost"
 		@msg.url = "the\nurl"
 		msg = reload
-		assert_equal "the\nhost", msg.host
+		assert_equal "the\nhost:4000", msg.host.to_s
 		assert_equal "the\nurl", msg.url
 	end
 

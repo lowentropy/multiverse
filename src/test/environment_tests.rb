@@ -22,7 +22,8 @@ class EnvironmentTests < Test::Unit::TestCase
 			@env.shutdown!
 			@env.join(0.3)
 		end
-		assert((Time.now - start < 3), "join took too long")
+		time = Time.now - start
+		assert((time < 4), "join took too long (#{time}s)")
 	end
 
 	def test_fun_return_value
@@ -34,7 +35,7 @@ class EnvironmentTests < Test::Unit::TestCase
 		$env = @env
 		@env.run
 		"foo".to_host.put '/test', :param => 'value', :message_id => 0
-		assert_equal "PUT foo/test?param=value&message_id=0", @pipe.read.to_s
+		assert_equal "PUT http://foo:4000/test?param=value&message_id=0", @pipe.read.to_s
 		@env.shutdown!
 		@env.join 0
 	end
@@ -47,7 +48,7 @@ end
 END
 		@env.run
 		@env.test
-		assert_equal "PUT foo/test?param=value&message_id=0", @pipe.read.to_s
+		assert_equal "PUT http://foo:4000/test?param=value&message_id=0", @pipe.read.to_s
 		@env.shutdown!
 		@env.join 0
 	end

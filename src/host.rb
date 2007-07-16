@@ -23,7 +23,8 @@ $: << File.dirname(__FILE__)
 
 class String
 	def to_host
-		Host.new($env, self)
+		host, port = split ':'
+		Host.new($env, [host, port || 4000])
 	end
 end
 
@@ -36,19 +37,21 @@ end
 
 class Host
 
+	attr_reader :info
+
 	def initialize(env, info)
 		@env, @info = env, info
 	end
 
 	def put(url, params={})
-		@env << [:put, @info, url, params]
+		@env << [:put, self, url, params]
 		nil
 	end
 
 	def post(url, params={})
 		response = {}
 		status = []
-		@env << [:post, @info, url, params, response, status]
+		@env << [:post, self, url, params, response, status]
 		@env.pass until status.any?
 		(status = status[0]) == :ok ? response[0].params : raise(status)
 	end
@@ -56,9 +59,13 @@ class Host
 	def get(url, params={})
 		response = []
 		status = []
-		@env << [:get, @info, url, params, response, status]
+		@env << [:get, self, url, params, response, status]
 		@env.pass until status.any?
 		(status = status[0]) == :ok ? response[0][:data] : raise(status)
+	end
+
+	def to_s
+		info.join ':'
 	end
 
 end

@@ -1,12 +1,13 @@
 $: << File.dirname(__FILE__)
 
 require 'uid'
+require 'host'
 
 class Message
 
-	attr_accessor :command, :host, :url
+	attr_accessor :command, :host, :url, :params
 
-	def initialize(command, host='localhost', url='/', params={})
+	def initialize(command, host, url='/', params={})
 		@command = command
 		@host = host
 		@url = url
@@ -22,13 +23,17 @@ class Message
 		@params[param] = value
 	end
 
+	def id
+		self[:message_id]
+	end
+
 	def delete(param)
 		@params.delete param
 	end
 
 	def to_s
 		params = @params.map {|k,v| "#{k}=#{v}"}.join("&")
-		"#{command.to_s.upcase} #{host}#{url}?#{params}"
+		"#{command.to_s.upcase} http://#{host}#{url}?#{params}"
 	end
 
 	def replies_to?(message)
@@ -48,6 +53,7 @@ class Message
 	def self.unmarshal(text)
 		command, text = next_str text
 		host, text = next_str text
+		host = host.to_host
 		url, text = next_str text
 		num_params, text = next_line(text)
 		num_params = num_params.to_i

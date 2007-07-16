@@ -1,23 +1,3 @@
-#
-# Multiverse - p2p online virtual community
-# Copyright (C) 2007  Nathan C. Matthews <lowentropy@gmail.com>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
-
-
 $: << File.dirname(__FILE__)
 
 require 'thread'
@@ -34,6 +14,7 @@ class Environment
 	include Untrace
 
 	attr_accessor :name
+	attr_reader :localhost
 
 	# set stuff up, taint some of it
 	def initialize(input=$stdin, output=$stdout)
@@ -51,6 +32,7 @@ class Environment
 		@outbox = [].taint
 		@url_patterns = {}.taint
 		@listeners = {}.taint
+		@localhost = 'localhost'.to_host
 		state(:global) {}
 		start_io_threads
 		add_script_commands
@@ -71,8 +53,8 @@ class Environment
 	def add_script_commands
 		%w(	map current_state resource req
 				require k goto klass delegate
-				state function fun reply pass
-				private public params outbox).each do |cmd|
+				state function fun reply pass err
+				private public params outbox log).each do |cmd|
 			@sandbox.delegate cmd.to_sym, self
 			@sandbox.delegate nil, self
 		end
@@ -100,7 +82,8 @@ class Environment
 		File.read name
 	end
 
-	# add a script to the environment
+	# add a script to the environment.
+	# this method can't really get shorter or simpler, unfortunately.
 	def add_script(name, text=nil)
 		untraced(2) do
 			# push previous require (depth-first order)
@@ -146,8 +129,9 @@ class Environment
 	# make a stack of instance variables for nested calls
 	def protect(*args, &block)
 		backup = {}
-		args.each {|arg| backup[arg] = eval "@#{arg}"}
-		return_value = untraced(2) { block.call }
+		params = args.map {|arg| backup[arg] = eval "@#{arg}"}
+		params.clear unless block.arity > 0
+		return_value = untraced(2) { block.call *params }
 		backup.each {|arg,val| eval "@#{arg} = val"}
 		return_value
 	end
@@ -277,12 +261,18 @@ class Environment
 
 	# handle a message
 	def handle(message)
-		case message.command
-		when :quit then shutdown!
-		when :reply then handle_reply message
-		when :action then action message.url, message.params
-		else @outbox << [	:no_command, message[:message_id],
-											message.command.to_s]
+		begin
+			case message.command
+			when :quit then shutdown! message[:timeout]
+			when :load then add_script message[:file]
+			when :mapped then nil
+			when :reply then handle_reply message
+			when :action then action message.url, message.params
+			else @outbox << [	:no_command, localhost,
+												'/' + message.command.to_s, message.params]
+			end
+		rescue Exception => e
+			err format_error(e)
 		end
 	end
 
@@ -356,7 +346,7 @@ class Environment
 
 	# format an action error into something to send as a reply
 	def format_error(error)
-		"#{error}\n" + (error.backtrace.map{|l| "\t#{l}"}).join('\n')
+		"#{error}\n" + (error.backtrace.map{|l| "\t#{l}"}).join("\n")
 	end
 
 	# send outgoing message to host
@@ -395,9 +385,9 @@ class Environment
 	def map_root(prefix, &block)
 		global_required
 		protect :map_id, :protection_level do
-			@map_id = prefix
+			@map_id = prefix.to_s
 			@protection_level = :public
-			@outbox << [:map, nil, prefix, {}]
+			@outbox << [:map, nil, prefix, {:regex => prefix.to_s}]
 			sandbox &block
 		end
 	end
@@ -412,14 +402,12 @@ class Environment
 	end
 
 	# require another file (depth-first order)
-	def require(script)
+	def req(script)
 		unless @included.include? script
 			@required << script
 			raise "require"
 		end
 	end
-
-	alias :req :require
 
 	# map a host url pattern
 	def map(arg, &block)
@@ -514,6 +502,16 @@ class Environment
 	def reply(params = {})
 		params[:message_id] = $_params[:message_id]
 		@outbox << [:reply, nil, nil, params]
+	end
+
+	# send a log message
+	def log(msg)
+		@outbox << [:log, nil, nil, {:message => msg}]
+	end
+
+	# send an error message
+	def err(msg)
+		@outbox << [:error, nil, nil, {:message => msg}]
 	end
 
 	# try to call a script-defined function
