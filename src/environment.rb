@@ -27,6 +27,7 @@ class Environment
 		@state = [:global].taint
 		@classes = {}.taint
 		@functions = {}.taint
+		@start = false
 		@required = [].taint
 		@states = [].taint
 		@outbox = [].taint
@@ -148,6 +149,9 @@ class Environment
 	# run the script environment. any errors will be thrown
 	# from self.join.
 	def run
+		Thread.pass until @start
+		@outbox << [:started, localhost, nil]
+		Thread.pass
 		@main_thread = Thread.new(self) do |env|
 			env.script_main
 		end
@@ -203,8 +207,9 @@ class Environment
 	# first, tell the script to exit, then tell IO to stop
 	# (which it won't until the script does)
 	def shutdown!
+		log 'shutting down...'
+		@outbox << [:quit, localhost, nil]
 		@sandbox[:exit] = true
-		@shutdown = true
 	end
 
 	# threads exit when shutdown signalled and scripts exit
@@ -234,8 +239,8 @@ class Environment
 			send_messages
 			Thread.pass
 		end
-		@pipe.close
-		Thread.exit
+		#@pipe.close # TODO: DBG
+		#Thread.exit
 	end
 
 	# handle messages in inbox
@@ -261,8 +266,10 @@ class Environment
 
 	# handle a message
 	def handle(message)
+		log "dispatching #{message.command}"
 		begin
 			case message.command
+			when :start then @start = true
 			when :quit then shutdown! message[:timeout]
 			when :load then add_script message[:file]
 			when :mapped then nil
@@ -289,8 +296,11 @@ class Environment
 	# call an action on the environment
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
+			log "resolving path (#{path})..."
 			map_id, action = env.resolve_path path, params
+			log "resolving action (#{map_id}: #{action})..."
 			block = env.resolve_action map_id, action, params
+			log "performing action..."
 			if block
 				$_params = params
 				begin
@@ -304,7 +314,7 @@ class Environment
 
 	# resolve path into map context and action name
 	def resolve_path(path, params)
-		parts = path.split '/'
+		parts = path.split('/').reject {|s| s.empty?}
 		map_id = parts.shift
 		while parts.size > 1
 			map_id = resolve_part map_id, parts.shift, path, params
@@ -315,6 +325,7 @@ class Environment
 
 	# resolve part of a path
 	def resolve_part(map_id, part, path, params)
+		log "resolving part (#{part})..."
 		if @url_patterns[map_id].nil?
 			return(host_error :no_path, path, params)
 		end
@@ -326,14 +337,14 @@ class Environment
 		elsif ids.size > 1
 			return(host_error :ambiguous_path, path, params)
 		else
-			return(ids.shift)
+			return(@url_patterns[map_id][ids[0]])
 		end
 	end
 
 	# resolve action name in map context into block
 	def resolve_action(map_id, action, params)
 		return nil unless map_id && action
-		block = env.listeners[map_id][action]
+		block = @listeners[map_id][action]
 		host_error(:no_action, path, params) if block.nil?
 		return block
 	end
@@ -356,6 +367,7 @@ class Environment
 		if [:get, :post].include? command
 			wait_for_reply_to message, result, done
 		end
+		@shutdown = true if command == :quit
 		nil
 	end
 
@@ -429,6 +441,7 @@ class Environment
 	# if it's inside a map block, it will be used
 	# as a message handler
 	def function(name, &block)
+		name = name.to_sym
 		if @map_id
 			@listeners[@map_id] ||= {}.taint
 			@listeners[@map_id][name] = [block, @protection_level]

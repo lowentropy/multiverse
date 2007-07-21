@@ -70,10 +70,11 @@ class Server  < Mongrel::HttpHandler
 	# start the server
 	def start
 		@shutdown = false
+		@pipes.values.each {|pipe| pipe.write Message.new(:start, nil, nil, {})}
 		@http = Mongrel::HttpServer.new '0.0.0.0', @options[:port].to_s
 		@http.register "/", self
 		@thread = @http.run
-		trap('INT') { @http.stop }
+		trap('INT') { shutdown }
 	end
 
 	# start a handler thread for the given message pipe
@@ -90,8 +91,9 @@ class Server  < Mongrel::HttpHandler
 				handle_msg name, pipe.read
 			end
 			pipe.write reply if reply
+			Thread.pass
 		end
-		pipe.close
+		pipe.write Message.new(:quit, nil, nil, {:timeout => 1})
 	end
 
 	# shut down the server
@@ -127,6 +129,10 @@ class Server  < Mongrel::HttpHandler
 			env_log name, msg[:message]
 		when :error
 			env_err name, msg[:message]
+		when :started
+			env_log name, 'environment started'
+		when :quit
+			env_log name, 'environment quit'
 		end
 	end
 
@@ -149,9 +155,12 @@ class Server  < Mongrel::HttpHandler
 
 	# process HTTP request
 	def process(request, response)
+		puts "handling request..."
 		code, body = handle request
+		puts "starting response..."
 		response.start(code) do |head,out|
 			#head.merge! reply
+			puts "writing body..."
 			out.write body
 		end
 	end
@@ -177,10 +186,12 @@ class Server  < Mongrel::HttpHandler
 
 	# handle request with given environment
 	def handle_with(request, env, handler_id)
+		puts "finding handler..."
 		method, url = request_info request
 		params = request_params(request).merge({
 			:handler_id => handler_id,
 			:method => method})
+		puts "contacting handler..."
 		msg = Message.new(:action, @localhost, url, params)
 		@pipes[env].write msg
 		reply = wait_for_reply_to msg
@@ -190,6 +201,7 @@ class Server  < Mongrel::HttpHandler
 
 	# wait for an environment to reply to a request
 	def wait_for_reply_to(msg)
+		puts "waiting for reply..."
 		until @shutdown
 			@env_replies.each do |reply|
 				if reply.id == msg.id
