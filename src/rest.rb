@@ -27,10 +27,6 @@ module REST
 		new_rest :Collection, regex.handle_uids, klass, {:regex => regex}, &block
 	end
 
-	def behavior(regex, klass=nil, &block)
-		new_rest :Behavior, regex.handle_uids, klass, {:regex => regex}, &block
-	end
-
 private
 
 	def collections
@@ -51,6 +47,11 @@ private
 public
 
 	module Collection
+
+		def initialize
+			@visibility = :public
+			@behaviors = []
+		end
 		
 		def public
 			@visibility = :public
@@ -64,14 +65,17 @@ public
 			@entity = new_rest :Entity, regex.handle_uids, klass, {:regex => regex}, &block
 		end
 
+		def behavior(regex, klass=nil, &block)
+			@behaviors << new_rest :Behavior, regex.handle_uids, klass, {:regex => regex}, &block
+		end
+
 		def register
 			REST::collections << self
-			REST::upstream :register, :collection => self
+			# TODO
 		end
 
 		def to_hash
-			{	:name => @name,
-				:regex => @regex }
+			{	:name => @name, :regex => @regex }
 		end
 
 		%w(index new get edit delete find add).each do |action|

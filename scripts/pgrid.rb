@@ -1,68 +1,31 @@
-# REST interface
 
 collection(/grid/, PGrid) do
-# sends :collection, regex and unique service key to server
 
 	public
-	# local dispatcher will not throw priv errors
-
 	index	{ render }
-	# this action is a block that is called instance_eval on a singleton
-	# instance of the class PGrid; a session key is provided which allows
-	# local access to things like the current match values
-	#
-	# render will take the REST return type and try to convert the
-	# instance into that and then render and return it
-
 	find	{|uid| Item.new uid, self }
-	# an entity def's path values are used to get the match values as in
-	# any collection action, but in this case called with the *entity's*
-	# match values as parameters
-	#
-	# constants should be looked up inside the anonymous module
-
 	add		{|item| handle?(item.uid) ? cache.add(item) : item.redirect}
-	# *after* the item has been constructed, this is called
 
-	entity(/(UID)/, Item) do
-	# collections can have many entity classes, their regexes will try
-	# to match in order
+	entity(/({uid})/, Item) do
 
+		public
 		path :uid
-		# sets @path on the def., which will be used when matching the url
 
 		create	{ cached.new }
-		# called in a sandbox-type environment where the path parts
-		# are accessor for the url match
-
 		show		{ @grid.handle?(uid) ? cached.get : redirect }
-		# this is like the show action
-
 		update	{ cached.edit; publish unless params[:local] }
-		# this is the update action
-
 		delete	{ owner? ? cached.delete : forbidden }
-		# this is called before the collection's version
 	end
 
+	private
 	behavior(/swap/) { swap params }
-	# this is called on the collection instance
 
 end
 
 
-# COLLECTION class
 class PGrid
 
 	attributes :uid, :prefix, :links
-	# render action will try to use these to serialize the object
-	#
-	# also should add attr_accessor's.
-	#
-	# also creates a reconstruct method that
-	# calls an empty initializer and sets the params
-	#
-	# should add a to_params method too
 
 	def initialize(uid=nil)
 		self.prefix = ''
@@ -72,7 +35,6 @@ class PGrid
 
 	def cache
 		'/cache/'.to_collection
-		# this produces a collection-api wrapper to a partial reference (def. lh)
 	end
 
 	# specialize domain against another pgrid
@@ -106,23 +68,14 @@ class PGrid
 end
 
 
-# ENTITY class
 
 class Item
 
-	collection :PGrid
-	# this should not have to be called...
-	# it will be added when coll.entity is claled
-
-	# wait... where is the data?
+	attributes :data, :signature
 
 	def initialize(uid, grid)
 		@uid = uid
 		@grid = grid
-	end
-
-	def url
-		"/grid/#{uid}"
 	end
 
 	def cached
@@ -132,7 +85,6 @@ class Item
 	def redirect
 		target = @grid.handler_for uid
 		redirect target[url], :handlers => hosts
-		# what does this do?
 	end
 
 	def publish
