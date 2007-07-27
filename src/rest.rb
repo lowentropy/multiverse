@@ -1,146 +1,87 @@
-class String
-	def constantize
-		begin
-			eval self
-		rescue
-			nil
-		end
-	end
-end
+$: << File.expand_path(File.dirname(__FILE__))
 
-class Regex
-	def replace_uids
-		/#{source.gsub(/UID/,'[0-9a-fA-F]{16}')}/
-	end
-end
+require 'ext'
 
-class Hash
-	def to_stream
-		inspect
-	end
-end
-
-
+# RESTful service patterns
 module REST
 
-	def collection(regex, klass=nil, &block)
-		new_rest :Collection, regex.handle_uids, klass, {:regex => regex}, &block
+	# the two toplevel patterns are collections & behaviors
+	def collection(regex, klass, &block)
+		collections << Collection.new(klass, regex, &block)
+	end
+	def behavior(regex, &block)
+		behaviors << Behavior.new(regex, &block)
 	end
 
 private
-
+	# the rest module maintains a list of patterns at runtime
 	def collections
 		@collections ||= []
 	end
-
-	def new_rest(pattern, name, klass=nil, args={}, &block)
-		name = name.to_s.capitalize
-		klass ||= name.constantize || Class.new
-		klass.extend eval("REST::#{pattern}")
-		args.merge({:name => name}).each do |k,v|
-			eval "klass.instance_eval {@#{k} = v}"
-		end
-		klass.instance_eval &block
-		klass.register
+	def behaviors
+		@behaviors ||= []
 	end
 
 public
-
-	module Collection
-
-		def initialize
+	# pattern root class
+	class Pattern
+		def initialize(regex, *actions)
+			@regex = regex
 			@visibility = :public
+			@actions = actions
+		end
+		def method_missing(id, *args, &block)
+			sym = id.id2name.to_sym
+			if @actions.include? sym
+				instance_variable_set sym, [@visibility, block]
+			else
+				super
+			end
+		end
+		%w(public private).each {|mode| eval "def #{mode}; @visibility = :mode; end"}
+	end
+
+	# a collection of a certain type of entity, and zero or more behaviors
+	#		GET = index
+	#		PUT = add
+	#		POST = find
+	#		DELETE = delete
+	class Collection << Pattern
+		def initialize(klass, regex, &block)
+			super(regex, :index, :find, :add, :delete)
+			@collection = klass
 			@behaviors = []
+			instance_eval &block
 		end
-		
-		def public
-			@visibility = :public
-		end
-
-		def private
-			@visibility = :private
-		end
-
-		def entity(regex, klass=nil, &block)
-			@entity = new_rest :Entity, regex.handle_uids, klass, {:regex => regex}, &block
-		end
-
-		def behavior(regex, klass=nil, &block)
-			@behaviors << new_rest :Behavior, regex.handle_uids, klass, {:regex => regex}, &block
-		end
-
-		def register
-			REST::collections << self
-			# TODO
-		end
-
-		def to_hash
-			{	:name => @name, :regex => @regex }
-		end
-
-		%w(index new get edit delete find add).each do |action|
-			eval <<-END
-				def #{action}(&block)
-					@#{@visibility}[:#{action}] = block
-				end
-			END
-		end
-
-	end
-
-	module Entity
-
 		def behavior(regex, &block)
-			@behaviors ||= []
-			@behaviors << Behavior.new(regex, &block)
+			@behaviors << [@visibility, Behavior.new(regex, &block)]
 		end
-
-		def path(*parts)
-			@parts = parts
+		def entity(regex, klass, &block)
+			raise "only one entity declaration allowed" if @entity
+			@entity = [@visibility, Entity.new(klass, regex, &block)]
 		end
-		
-		def public
-			@visibility = :public
-		end
-
-		def private
-			@visibility = :private
-		end
-
-		def register
-			# do nothing
-		end
-
-		%w(new edit get delete).each do |action|
-			eval <<-END
-				def #{action}(&block)
-					@#{@visibility}[:#{action}] = block
-				end
-			END
-		def 
-
 	end
 
-	class Behavior
-
-		def initialize(object, regex, &block)
-			@regex = regex.replace_uids
+	# a member of a collection
+	#		GET = show
+	#		PUT = new
+	#		POST = update
+	#		DELETE = delete
+	class Entity << Pattern
+		def initialize(klass, regex, &block)
+			super(regex, :show, :delete, :update, :new)
+			@entity = klass
+			instance_eval &block
+		end
+	end
+	
+	# a behavior is a named action taking a POST
+	#		POST = call
+	class Behavior << Pattern
+		def initialize(regex, &block)
+			super(regex)
 			@block = block
 		end
-
-		def path(*parts)
-			@parts = parts
-		end
-
-		def call(url)
-			@match = @regex.match url
-			object.instance_eval
-		end
-
-		def register
-			# TODO
-		end
-
 	end
 	
 end
