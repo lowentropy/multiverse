@@ -11,7 +11,9 @@ module REST
 	#		GET = index
 	#		POST = add
 	class Store << Pattern
+
 		attr_reader :instance
+
 		def initialize(klass, regex, &block)
 			super(regex, :index, :find, :add)
 			@store = klass
@@ -21,7 +23,6 @@ module REST
 			create_instance
 		end
 
-		private
 		def create_instance
 			@model = Module.new {}
 			@model.instance_variable_set :store, self
@@ -30,11 +31,11 @@ module REST
 			@instance.extend @model
 		end
 
-		public
 		# sub-pattern declarations
 		def behavior(regex, &block)
 			@behaviors << [@visibility, Behavior.new(regex, &block)]
 		end
+
 		def entity(regex_or_name, klass, &block)
 			if regex.is_a? Regex
 				raise "only one regex entity declaration allowed" if @entity
@@ -44,24 +45,51 @@ module REST
 			end
 		end
 
-		private
 		# structural stuff
-		def find(host, path)
+		def route(host, parent, instance, path, index)
+			return true if route_to_static host, parent, instance, path, index
+			return true if route_to_behavior host, parent, instance, path, index
+			return true if route_to_dynamic host, parent, instance, path, index
+			false
+		end
+
+		def route_to_static(host, parent, instance, path, index)
 			@static.each do |name,sub|
-				vis, sub_pattern = *sub
-				if path == name.to_s
+				vis, entity = *sub
+				if path[index] == name.to_s
 					host.assert_visibility vis
-					return sub_pattern.instance
+					return entity.handle host, instance, entity.instance, path, index+1
 				end
 			end
-			return nil unless @entity
+			false
+		end
+
+		def route_to_behavior(host, parent, instance, path, index)
+			@behaviors.each do |name,sub|
+				vis, behavior = *sub
+				if path[index] == name.to_s
+					host.assert_visibility vis
+					return behavior.handle host, instance, nil, path, index+1
+				end
+			end
+			false
+		end
+
+		def route_to_dynamic(host, parent, instance, path, index)
+			if @entity.regex =~ path[index]
+				object = find host, path[index]
+				return @entity.handle host, instance, object, path, index+1
+			end
+			false
+		end
+
+		def find(host, path)
 			parts = @entity.parse path
 			vis, block = @find
 			host.assert_visibility vis
 			block.call *parts
 		end
 
-		public
 		# REST responders
 		def get(host, path)
 			vis, block = @index
