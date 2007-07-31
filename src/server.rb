@@ -15,7 +15,7 @@ class Server  < Mongrel::HttpHandler
 	include Debug
 
 	def initialize(options={})
-		# FIXME: persistent configuration
+		# TODO: persistent configuration
 		@options = options
 		@options[:port] ||= 4000
 		@options[:default_lang] ||= :ruby
@@ -229,8 +229,12 @@ class Server  < Mongrel::HttpHandler
 
 	# get method and url of request
 	def request_info(request)
-		[request.params['REQUEST_METHOD'].downcase.to_sym,
-		 request.params['REQUEST_PATH']]
+		#[request.params['REQUEST_METHOD'].downcase.to_sym,
+		# request.params['REQUEST_PATH']]
+		{	:method	=> request.params['REQUEST_METHOD'].downcase.to_sym,
+			:path		=> Path.new(request.params['REQUEST_PATH']),
+			:body		=> request.body, # FIXME: ???
+			:params	=> request_params(request) }
 	end
 
 	# find the handler for the given url
