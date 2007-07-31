@@ -15,6 +15,10 @@ class Message
 		@params[:message_id] ||= UID.random
 	end
 
+	def self.system(command, params={})
+		self.new command, nil, nil, params
+	end
+
 	def [](param)
 		@params[param]
 	end

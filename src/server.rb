@@ -15,6 +15,7 @@ class Server  < Mongrel::HttpHandler
 	include Debug
 
 	def initialize(options={})
+		# FIXME: persistent configuration
 		@options = options
 		@options[:port] ||= 4000
 		@options[:default_lang] ||= :ruby
@@ -24,6 +25,7 @@ class Server  < Mongrel::HttpHandler
 		@environments = {}
 		@pipe_threads = []
 		@env_replies = []
+		@min_error_code = 400
 		@localhost = Host.new(nil, ['localhost', @options[:port]])
 	end
 
@@ -74,7 +76,7 @@ class Server  < Mongrel::HttpHandler
 		@http = Mongrel::HttpServer.new '0.0.0.0', @options[:port].to_s
 		@http.register "/", self
 		@thread = @http.run
-		trap('INT') { shutdown }
+		trap('INT') { shutdown; join 0.5 }
 	end
 
 	# start a handler thread for the given message pipe
@@ -93,7 +95,7 @@ class Server  < Mongrel::HttpHandler
 			pipe.write reply if reply
 			Thread.pass
 		end
-		pipe.write Message.new(:quit, nil, nil, {:timeout => 1})
+		pipe.write Message.system(:quit, :timeout => 1)
 	end
 
 	# shut down the server
@@ -110,56 +112,65 @@ class Server  < Mongrel::HttpHandler
 
 	# handle a message from the pipe
 	def handle_msg(name, msg)
-		return unless msg
+		raise "null message" unless msg
+
 		case msg.command
+		# inline error responses
 		when :no_command, :no_path, :no_action, :ambiguous_path
 			msg[:code] = 500
 			msg[:body] = msg.to_s
 			@env_replies << msg
-			nil
+
+		# requests to other hosts are handled inline
 		when :get, :put, :post, :delete
 			code, body = send msg.command, msg.host, msg.url, msg.params
 			Message.new(:reply, msg.host, msg.url, {:code => code, :body => body})
+
+		# replies are handled by another thread
 		when :reply
 			@env_replies << msg
-			nil
+
+		# script url map command
 		when :map
 			map name, msg.params[:regex], msg.params[:handler_id]
-		when :log
-			env_log name, msg[:message]
-		when :error
-			env_err name, msg[:message]
-		when :started
-			env_log name, 'environment started'
-		when :quit
-			env_log name, 'environment quit'
+
+		# out-of-band bookkeeping
+		when :log, :error
+			send "env_#{msg.command}", msg[:message]
+
+		# status messages
+		when :started, :quit
+			env_log name, "environment #{msg.command}"
 		end
+		nil
 	end
 
-	# map a url regex to 
+	# map a url regex to an environment handler id
 	def map(name, regex, handler_id)
+		# FIXME: there should be scope restrictions for security
 		@maps[regex] = [name, handler_id]
-		status = :ok
-		Message.new :mapped, @localhost, nil, {:status => status}
+		Message.new :mapped, @localhost, nil, {:status => :ok}
 	end
 
 	# error from the environment
 	def env_err(name, msg)
+		# TODO: real logging
 		puts "ENV ERR: #{name}: #{msg}"
 	end
 
 	# log message from the environment
 	def env_log(name, msg)
+		# TODO: real logging
 		puts "ENV LOG: #{name}: #{msg}"
 	end
 
 	# process HTTP request
 	def process(request, response)
+		# FIXME: take out debug statements
 		puts "handling request..."
 		code, body = handle request
 		puts "starting response..."
 		response.start(code) do |head,out|
-			#head.merge! reply
 			puts "writing body..."
 			out.write body
 		end
@@ -186,6 +197,7 @@ class Server  < Mongrel::HttpHandler
 
 	# handle request with given environment
 	def handle_with(request, env, handler_id)
+		# FIXME: remove debug statements
 		puts "finding handler..."
 		method, url = request_info request
 		params = request_params(request).merge({
@@ -195,11 +207,12 @@ class Server  < Mongrel::HttpHandler
 		msg = Message.new(:action, @localhost, url, params)
 		@pipes[env].write msg
 		reply = wait_for_reply_to msg
-		env_err env, reply[:body] if reply[:code] >= 500
+		env_err env, reply[:body] if reply[:code] >= @min_error_code
 		[reply[:code], reply[:body]]
 	end
 
 	# wait for an environment to reply to a request
+	# reply returned must respond to [:code] and [:body]
 	def wait_for_reply_to(msg)
 		puts "waiting for reply..."
 		until @shutdown
