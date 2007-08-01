@@ -1,6 +1,8 @@
 
 collection(/grid/, PGrid) do
 
+	attributes :uid, :prefix, :links, :size
+
 	public
 	index	{ render }
 	find	{|uid| Item.new uid, self }
@@ -24,8 +26,6 @@ end
 
 
 class PGrid
-
-	attributes :uid, :prefix, :links
 
 	def initialize(uid=nil)
 		self.prefix = ''

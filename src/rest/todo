@@ -5,5 +5,4 @@ things to add to pattern instances:
   redirect (uses uri)
   attributes ->
     render (xml/yaml attributes)
-    attribute accessors
-
+		adds entities w/ default actions
