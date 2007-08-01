@@ -13,6 +13,20 @@ module REST
 			@actions = actions
 		end
 
+		def path(*parts)
+			@parts = parts
+			parts.each do |part|
+				attr_reader :part
+			end
+		end
+
+		def parse(path)
+			m = @regex.match path
+			@parts.map_with_index do |part,i|
+				eval "@#{part} = m[i+1]"
+			end
+		end
+
 		def method_missing(id, *args, &block)
 			sym = id.id2name.to_sym
 			if @actions.include? sym
@@ -38,7 +52,7 @@ module REST
 		end
 
 		%w(public private).each do |mode|
-			eval "def #{mode}; @visibility = :mode; end"
+			eval "def #{mode}; @visibility = :#{mode}; end"
 		end
 	end
 

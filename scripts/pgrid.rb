@@ -84,12 +84,12 @@ class Item
 
 	def redirect
 		target = @grid.handler_for uid
-		redirect target[url], :handlers => hosts
+		redirect target[uri], :handlers => hosts
 	end
 
 	def publish
 		@grid.handlers_for(uid).each do |host|
-			host[url].update to_params
+			host[uri].update to_params
 		end
 	end
 

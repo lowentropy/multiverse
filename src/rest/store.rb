@@ -37,7 +37,7 @@ module REST
 		end
 
 		def entity(regex_or_name, klass, &block)
-			if regex.is_a? Regex
+			if regex.is_a? Regexp
 				raise "only one regex entity declaration allowed" if @entity
 				@entity = [@visibility, Entity.new(klass, regex_or_name, &block)]
 			else
