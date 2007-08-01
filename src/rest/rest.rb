@@ -9,19 +9,20 @@ require 'behavior'
 # RESTful service patterns
 module REST
 
-	# top level pattern declarations
+	%w(public private).each do |mode|
+		eval "@visibility = :#{mode}"
+	end
 
-	def entity(name, klass, &block)
-		raise "no dynamic names outside stores" unless name.is_a? Symbol
-		(@entities ||= {})[name] = Entity.new(name, klass, &block)
+	def entity(regex, klass, &block)
+		(@entities ||= []) << [(@visibility||:public), Entity.new(klass, regex, &block)]
 	end
 
 	def store(regex, klass, &block)
-		(@stores ||= []) << Store.new(klass, regex, &block)
+		(@stores ||= []) << [(@visibility||:public), Store.new(klass, regex, &block)]
 	end
 
 	def behavior(regex, &block)
-		(@behaviors ||= []) << Behavior.new(regex, &block)
+		(@behaviors ||= []) << [(@visibility||:public), Behavior.new(regex, &block)]
 	end
 
 end

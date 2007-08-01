@@ -15,8 +15,9 @@ module REST
 		def initialize(klass, regex, &block)
 			super(regex, :show, :delete, :update, :new)
 			@entity = klass
-			@static = {}
+			@entities = []
 			@behaviors = []
+			@collections = []
 			instance_eval &block
 			@model = Module.new {}
 			@model.instance_variable_set :entity, self
@@ -28,38 +29,34 @@ module REST
 			@behaviors << [@visibility, Behavior.new(regex, &block)]
 		end
 
-		def entity(name, klass, &block)
-			raise "no dynamic entities outside stores" unless name.is_a? Symbol
-			@static[name] = [@visibility, Entity.new(klass, name, &block)]
+		def entity(regex, klass, &block)
+			@entities << [@visibility, Entity.new(klass, regex, &block)]
 		end
 
-		# structural stuff
+		def collection(regex, klass, &block)
+			@collections << [@visibility, Collection.new(klass, regex, &block)]
+		end
+
+		# routers
 		def route(host, parent, instance, path, index)
-			return true if route_to_entity host, parent, instance, path, index
-			return true if route_to_behavior host, parent, instance, path, index
-			false
-		end
-
-		def route_to_entity(host, parent, instance, path, index)
-			@static.each do |name,sub|
-				vis, entity = *sub
-				if path[index] == name.to_s
-					host.assert_visibility vis
-					return entity.handle host, instance, entity.instance, path, index+1
-				end
+			%w(entity store behavior).each do |pattern|
+				return true if send "route_to_#{pattern}" host, parent, instance, path, index
 			end
 			false
 		end
 
-		def route_to_behavior(host, parent, instance, path, index)
-			@behaviors.each do |sub|
-				vis, behavior = *sub
-				if behavior.regex =~ path
-					host.assert_visibility vis
-					return behavior.handle host, instance, nil, path, index+1
+		%w(entity store behavior).each do |pattern|
+			define_method "rout_to_#{pattern}" do |host,parent,instance,path,index|
+				collection = instance_variable_get "@#{pattern.pluralize}"
+				collection.each do |sub|
+					vis, klass = *sub
+					if klass.regex =~ path[index]
+						host.assert_visibility vis
+						return klass.handle host, instance, klass.instance, path, index+1
+					end
 				end
+				false
 			end
-			false
 		end
 
 		# REST responders

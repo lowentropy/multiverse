@@ -5,6 +5,8 @@ module REST
 	# pattern root class
 	class Pattern
 
+		attr_reader :regex
+
 		def initialize(regex, *actions)
 			@regex = regex
 			@visibility = :public
@@ -23,8 +25,16 @@ module REST
 		def run_handler(instance, *globals, &block)
 			Thread.new(instance, block, globals) do |instance,block,globals|
 				globals.each {|name,value| eval "$#{name} = value"}
-				instance ? instance.instance_eval(&block) : block.call
+				instance ? instance.instance_exec(&block) : block.call
 			end.join
+		end
+
+		def handle(host, parent, instance, path, index)
+			if path[index]
+				route host, parent, instance, path, index
+			else
+				instance
+			end
 		end
 
 		%w(public private).each do |mode|

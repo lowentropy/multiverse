@@ -41,40 +41,34 @@ module REST
 				raise "only one regex entity declaration allowed" if @entity
 				@entity = [@visibility, Entity.new(klass, regex_or_name, &block)]
 			else
-				@static[regex_or_name] = [@visibility, Entity.new(klass, regex_or_name, &block)]
+				@entities << [@visibility, Entity.new(klass, eval("/#{regex_or_name}/"), &block)]
 			end
 		end
 
-		# structural stuff
+		# routers
 		def route(host, parent, instance, path, index)
-			return true if route_to_static host, parent, instance, path, index
-			return true if route_to_behavior host, parent, instance, path, index
+			%w(entity collection behavior).each do |pattern|
+				return true if send "route_to_#{pattern}" host, parent, instance, path, index
+			end
 			return true if route_to_dynamic host, parent, instance, path, index
 			false
 		end
 
-		def route_to_static(host, parent, instance, path, index)
-			@static.each do |name,sub|
-				vis, entity = *sub
-				if path[index] == name.to_s
-					host.assert_visibility vis
-					return entity.handle host, instance, entity.instance, path, index+1
+		%w(entity collection behavior).each do |pattern|
+			define_method "route_to_#{pattern}" do |host,parent,instance,path,index|
+				collection = instance_variable_get "@#{pattern.pluralize}"
+				collection.each do |sub|
+					vis, klass = *sub
+					if sub.regex =~ path[index]
+						host.assert_visibility vis
+						return klass.handle host, instance, klass.instance, path, index+1
+					end
 				end
+				false
 			end
-			false
 		end
 
-		def route_to_behavior(host, parent, instance, path, index)
-			@behaviors.each do |name,sub|
-				vis, behavior = *sub
-				if path[index] == name.to_s
-					host.assert_visibility vis
-					return behavior.handle host, instance, nil, path, index+1
-				end
-			end
-			false
-		end
-
+		# dynamic routing
 		def route_to_dynamic(host, parent, instance, path, index)
 			if @entity.regex =~ path[index]
 				object = find host, path[index]
@@ -87,7 +81,7 @@ module REST
 			parts = @entity.parse path
 			vis, block = @find
 			host.assert_visibility vis
-			block.call *parts
+			instance.instance_exec *parts, &block
 		end
 
 		# REST responders
@@ -97,6 +91,7 @@ module REST
 			reply = run_handler :path => path, &block
 			host.reply_with reply # TODO
 		end
+
 		def post(host, path, body, params)
 			entity = @entity.new host, path, body, params
 			vis, block = @add
