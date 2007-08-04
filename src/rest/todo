@@ -1,8 +1,0 @@
-things to add to pattern instances:
-  @parent (set by route)
-  path readers (@...)
-  uri (right now, from parse -> @uri)
-  redirect (uses uri)
-  attributes ->
-    render (xml/yaml attributes)
-		adds entities w/ default actions

@@ -18,10 +18,13 @@ module REST
 			@entities = []
 			@behaviors = []
 			@collections = []
+			@entity.extend PatternInstance
 			instance_eval &block
-			@model = Module.new {}
-			@model.instance_variable_set :entity, self
-			@model.extend ModelInstance
+		end
+
+		# lazy init (because it's only used for singletons)
+		def instance
+			@instance ||= @entity.new
 		end
 
 		# sub-pattern declarations

@@ -2,6 +2,26 @@ $: << File.expand_path(File.dirname(__FILE__))
 
 module REST
 
+	module PatternInstance
+		attr_reader :uri
+		def redirect
+			# TODO: return 302 to self.uri
+		end
+		def render
+			@map = {}
+			@attributes.each do |attr|
+				@map[attr] = send attr
+			end
+			# TODO: render @map
+		end
+		def parse(path)
+			m = @regex.match path
+			@parts.map_with_index do |part,i|
+				eval "@#{part} = m[i+1]"
+			end
+		end
+	end
+
 	# pattern root class
 	class Pattern
 
@@ -16,14 +36,14 @@ module REST
 		def path(*parts)
 			@parts = parts
 			parts.each do |part|
-				attr_reader :part
-			end
-		end
-
-		def parse(path)
-			m = @regex.match path
-			@parts.map_with_index do |part,i|
-				eval "@#{part} = m[i+1]"
+				@model.attr_reader part
+				entity(part,nil) do
+					# TODO: accessors should be more intelligent...
+					# TODO: route should set @parent and @uri
+					# TODO: set @path and @regex on @model
+					show { @parent.send part }
+					update { @parent.send "#{part}=", body }
+				end
 			end
 		end
 
