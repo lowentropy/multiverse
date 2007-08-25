@@ -9,14 +9,13 @@ require 'debug'
 require 'uri'
 
 
-# The multiverse server. Runs WEBrick.
-class Server  < Mongrel::HttpHandler
+# The multiverse server. Runs Mongrel.
+class Server < Mongrel::HttpHandler
 
 	include Debug
 
-	def initialize(options={})
-		# TODO: persistent configuration
-		@options = options
+	def initialize(options=nil)
+		@options = options || Config.load 'server'
 		@options[:port] ||= 4000
 		@options[:default_lang] ||= :ruby
 		@options[:default_env] ||= :host
@@ -72,7 +71,7 @@ class Server  < Mongrel::HttpHandler
 	# start the server
 	def start
 		@shutdown = false
-		@pipes.values.each {|pipe| pipe.write Message.new(:start, nil, nil, {})}
+		@pipes.values.each {|pipe| pipe.write Message.system(:start)}
 		@http = Mongrel::HttpServer.new '0.0.0.0', @options[:port].to_s
 		@http.register "/", self
 		@thread = @http.run
@@ -166,22 +165,22 @@ class Server  < Mongrel::HttpHandler
 
 	# process HTTP request
 	def process(request, response)
-		# FIXME: take out debug statements
-		puts "handling request..."
-		code, body = handle request
-		puts "starting response..."
-		response.start(code) do |head,out|
-			puts "writing body..."
-			out.write body
+		debug 'server.process' do
+			handle request
+			response.start(code) do |head,out|
+				out.write body
+			end
 		end
 	end
 
 	# handle an HTTP request; return code, body
 	def handle(request)
-		method, url = request_info request
-		env, handler_id = handler_for url
-		return [404, ''] unless env
-		handle_with request, env, handler_id
+		debug 'handle' do
+			method, url = request_info request
+			env, handler_id = handler_for url
+			return [404, ''] unless env
+			handle_with request, env, handler_id
+		end
 	end
 
 	# get form params from request
@@ -229,8 +228,6 @@ class Server  < Mongrel::HttpHandler
 
 	# get method and url of request
 	def request_info(request)
-		#[request.params['REQUEST_METHOD'].downcase.to_sym,
-		# request.params['REQUEST_PATH']]
 		{	:method	=> request.params['REQUEST_METHOD'].downcase.to_sym,
 			:path		=> Path.new(request.params['REQUEST_PATH']),
 			:body		=> request.body, # FIXME: ???
@@ -249,10 +246,12 @@ class Server  < Mongrel::HttpHandler
 	# command requests
 	%w(get put post delete).each do |command|
 		define_method command do |host,path,*params|
-			req = eval "Net::HTTP::#{command.capitalize}.new(path)"
-			req.set_form_data(params[0] || {})
-			res = Net::HTTP.start(*host.info) {|http| http.request req }
-			[res.code.to_i, res.body]
+			debug "server.#{command}" do
+				req = eval "Net::HTTP::#{command.capitalize}.new(path)"
+				req.set_form_data(params[0] || {})
+				res = Net::HTTP.start(*host.info) {|http| http.request req }
+				[res.code.to_i, res.body]
+			end
 		end
 	end
 

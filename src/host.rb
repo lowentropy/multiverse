@@ -49,7 +49,7 @@ class Host
 	end
 
 	def post(url, params={})
-		response = {}
+		response = []
 		status = []
 		@env << [:post, self, url, params, response, status]
 		@env.pass until status.any?
