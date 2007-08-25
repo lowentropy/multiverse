@@ -12,7 +12,7 @@ class Object
 			Thread.critical = old_c
 		end
 		begin
-			return send name, *args
+			return send(name, *args)
 		ensure
 			InstanceExecHelper.module_eval{ remove_method(name) }
 		end

@@ -7,15 +7,19 @@ require 'sandbox_tests'
 require 'environment_tests'
 require 'untrace_tests'
 require 'script_tests'
+require 'instance_exec_tests'
+require 'config_tests'
 
 class MVTestSuite
 	def self.suite
 		suite = Test::Unit::TestSuite.new 'Multiverse Tests'
 		suite << MessageTests.suite
 		suite << SandboxTests.suite
-		suite << EnvironmentTests.suite
+#		suite << EnvironmentTests.suite
 		suite << UntraceTests.suite
-		suite << ScriptTests.suite
+#		suite << ScriptTests.suite
+		suite << InstanceExecTests.suite
+		suite << ConfigTests.suite
 		return suite
 	end
 end

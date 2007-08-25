@@ -5,6 +5,7 @@ $:.unshift File.dirname(__FILE__)
 require 'rubygems'
 require 'net/http'
 require 'mongrel'
+require 'config'
 require 'debug'
 require 'uri'
 
@@ -13,12 +14,9 @@ require 'uri'
 class Server < Mongrel::HttpHandler
 
 	include Debug
+	include Configurable
 
 	def initialize(options=nil)
-		@options = options || Config.load 'server'
-		@options[:port] ||= 4000
-		@options[:default_lang] ||= :ruby
-		@options[:default_env] ||= :host
 		@pipes = {}
 		@maps = {}
 		@environments = {}
@@ -26,6 +24,13 @@ class Server < Mongrel::HttpHandler
 		@env_replies = []
 		@min_error_code = 400
 		@localhost = Host.new(nil, ['localhost', @options[:port]])
+
+		Configurable.base = File.expand_path(File.dirname(__FILE__) + '/..')
+		config_file 'host.config', 'host'
+		config.merge! options.merge(config)
+		config[:port] ||= 4000
+		config[:default_lang] ||= :ruby
+		config[:default_env] ||= :host
 	end
 
 	# hook an in-memory environment into this server
