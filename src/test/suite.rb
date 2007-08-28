@@ -15,7 +15,7 @@ class MVTestSuite
 		suite = Test::Unit::TestSuite.new 'Multiverse Tests'
 		suite << MessageTests.suite
 		suite << SandboxTests.suite
-#		suite << EnvironmentTests.suite
+		suite << EnvironmentTests.suite
 		suite << UntraceTests.suite
 #		suite << ScriptTests.suite
 		suite << InstanceExecTests.suite

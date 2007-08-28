@@ -147,7 +147,8 @@ class Environment
 	end
 
 	# run the script environment. any errors will be thrown
-	# from self.join.
+	# from self.join. won't actually execute scripts until
+	# the start message is recieved or start! is called.
 	def run
 		Thread.pass until @start
 		@outbox << [:started, localhost, nil]
@@ -155,6 +156,17 @@ class Environment
 		@main_thread = Thread.new(self) do |env|
 			env.script_main
 		end
+	end
+
+	# give the environment the green light
+	def start!
+		@start = true
+	end
+
+	# run right now, don't wait for start signal
+	def run!
+		start!
+		run
 	end
 
 	# main script loop

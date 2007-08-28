@@ -12,7 +12,7 @@ module REST
 			@attributes.each do |attr|
 				@map[attr] = send attr
 			end
-			# TODO: render @map
+			# TODO: render @map with requested media type or extension
 		end
 		def parse(path)
 			m = @regex.match path

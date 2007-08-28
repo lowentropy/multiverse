@@ -87,9 +87,9 @@ module REST
 		# REST responders
 		def get(host, path)
 			vis, block = @index
-			host.assert_visibility vis # TODO
+			host.assert_visibility vis
 			reply = run_handler :path => path, &block
-			host.reply_with reply # TODO
+			host.reply_with reply
 		end
 
 		def post(host, path, body, params)

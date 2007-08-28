@@ -44,5 +44,3 @@ class Hash
 		inspect
 	end
 end
-
-

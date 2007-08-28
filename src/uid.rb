@@ -11,7 +11,12 @@ class UID
 	# generate a random 64-bit number, rendered
 	# as a 16-character hex string
 	def self.random
-		'%032X' % [rand(2 ** 128)]
+		[8,4,4,4,12].map {|n| rand_hex(n)}.join '-'
+	end
+
+	private
+	def self.rand_hex(n)
+		"%0#{n}X" % [rand(2 ** (n * 4))]
 	end
 
 end

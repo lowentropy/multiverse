@@ -17,7 +17,7 @@ class EnvironmentTests < Test::Unit::TestCase
 	def test_join
 		start = Time.now
 		assert_nothing_raised do
-			@env.run
+			@env.run!
 			sleep 1
 			@env.shutdown!
 			@env.join(0.3)
@@ -33,9 +33,10 @@ class EnvironmentTests < Test::Unit::TestCase
 
 	def test_pipe_out_external
 		$env = @env
-		@env.run
+		@env.run!
 		"foo".to_host.put '/test', :param => 'value', :message_id => 0
-		assert_equal "PUT http://foo:4000/test?param=value&message_id=0", @pipe.read.to_s
+		@pipe.read # :started
+		assert_match(/PUT http:\/\/foo:4000\/test\?((param=value|message_id=0)&?)+/, @pipe.read.to_s)
 		@env.shutdown!
 		@env.join 0
 	end
@@ -46,11 +47,19 @@ fun :test do
 	'foo'.to_host.put '/test', :param => 'value', :message_id => 0
 end
 END
-		@env.run
+		@env.run!
 		@env.test
-		assert_equal "PUT http://foo:4000/test?param=value&message_id=0", @pipe.read.to_s
+		@pipe.read # :started
+		assert_match(/PUT http:\/\/foo:4000\/test\?((param=value|message_id=0)&?)+/, @pipe.read.to_s)
 		@env.shutdown!
 		@env.join 0
+	end
+
+	def test_many_messages
+		$env = @env
+		n = 1000
+		n.times {|i| 'foo'.to_host.put '/test', :n => i}
+		n.times {@pipe.read}
 	end
 
 end

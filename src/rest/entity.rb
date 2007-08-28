@@ -17,7 +17,7 @@ module REST
 			@entity = klass
 			@entities = []
 			@behaviors = []
-			@collections = []
+			@stores = []
 			@entity.extend PatternInstance
 			instance_eval &block
 		end
@@ -36,8 +36,8 @@ module REST
 			@entities << [@visibility, Entity.new(klass, regex, &block)]
 		end
 
-		def collection(regex, klass, &block)
-			@collections << [@visibility, Collection.new(klass, regex, &block)]
+		def store(regex, klass, &block)
+			@stores << [@visibility, Store.new(klass, regex, &block)]
 		end
 
 		# routers
