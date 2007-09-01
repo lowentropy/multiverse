@@ -34,8 +34,13 @@ class ObjectPipe
 	def read
 		return nil unless @in
 		begin
-			len = @in.readline.to_i
+			sep = @in.read 10
+			return nil if !sep or sep.empty?
+			raise "separator was '#{sep}'" unless sep == "---------\n"
+			len = @in.readline.strip.to_i
 			text = @in.read len
+			term = @in.read 10
+			raise "terminator was '#{term}'" unless term == "---------\n"
 			@unmarshal.call text
 		rescue EOFError => e
 			nil
@@ -43,16 +48,18 @@ class ObjectPipe
 	end
 
 	def write(object)
-		return unless @out
+		return unless @out and not @out.closed?
 		text = object.marshal
-		@out.puts text.size
+		@out.puts "---------"
+		@out.puts text.size.to_s
 		@out.write text
+		@out.puts "---------"
 		@out.flush
 	end
 
 	def close
-		@in.close
-		@out.close
+		@in.close unless @in.closed?
+		@out.close unless @out.closed?
 	end
 end
 

@@ -219,9 +219,9 @@ class Environment
 	# first, tell the script to exit, then tell IO to stop
 	# (which it won't until the script does)
 	def shutdown!
-		log 'shutting down...'
-		@outbox << [:quit, localhost, nil]
+		@pipe.write Message.new(:quit, localhost)
 		@sandbox[:exit] = true
+		@shutdown = true
 	end
 
 	# threads exit when shutdown signalled and scripts exit
@@ -240,7 +240,6 @@ class Environment
 			end
 			Thread.pass
 		end
-		Thread.exit
 		@pipe_closed = true
 	end
 
@@ -251,8 +250,7 @@ class Environment
 			send_messages
 			Thread.pass
 		end
-		#@pipe.close # TODO: DBG
-		#Thread.exit
+		@pipe.close
 	end
 
 	# handle messages in inbox
@@ -278,11 +276,12 @@ class Environment
 
 	# handle a message
 	def handle(message)
-		log "dispatching #{message.command}"
 		begin
 			case message.command
 			when :start then @start = true
-			when :quit then shutdown! message[:timeout]
+			when :quit
+				shutdown!
+				join message[:timeout] # FIXME: ???
 			when :load then add_script message[:file]
 			when :mapped then nil
 			when :reply then handle_reply message
@@ -320,6 +319,8 @@ class Environment
 				rescue Exception => e
 					reply :error => format_error(e)
 				end
+			else
+				@outbox << [:not_found, localhost, path, params]
 			end
 		end
 	end
@@ -379,7 +380,6 @@ class Environment
 		if [:get, :post].include? command
 			wait_for_reply_to message, result, done
 		end
-		@shutdown = true if command == :quit
 		nil
 	end
 
@@ -522,6 +522,8 @@ class Environment
 	def pass
 		Thread.pass
 	end
+
+	# TODO: always reply, even if it is with 'empty response'
 
 	# reply to a GET or POST
 	def reply(params = {})

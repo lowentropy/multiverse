@@ -10,7 +10,11 @@ private
 
 public
 	# cache a host: add to the directory
-	fun :add
+	fun :add do
 		host.directory << Message.unmarshal(params[:host])
+	end
+
+	fun :ping do
+		reply
 	end
 end

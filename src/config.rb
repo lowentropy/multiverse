@@ -10,6 +10,17 @@ module Configurable
 		@@base = base
 	end
 
+	def config_options(options={})
+		config = self.config
+		config.merge!(options.merge(config))
+	end
+
+	def config_tree(key, root=config(true), sec=@section.clone)
+		return root if root.has_key? key
+		return nil if sec.empty?
+		config_tree(key, root[sec.shift], sec)
+	end
+
 	def config(all=false)
 		raise "no configuration found" unless @config || @config_root
 		config = @config || @config_root.config(true)
@@ -19,6 +30,13 @@ module Configurable
 			end
 		end
 		config
+	end
+
+	def config_default(defaults={})
+		config = self.config
+		defaults.each do |key,value|
+			config[key] = value unless config.has_key?(key)
+		end
 	end
 	
 	def config_file(file=nil, section=nil)

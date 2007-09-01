@@ -27,7 +27,7 @@ c: d
 
 	def test_load_host_config
 		assert_nothing_raised do
-			Configuration.load '../../host.config'
+			Configuration.load '../../config/host.config'
 		end
 	end
 
@@ -93,7 +93,7 @@ c: d
 	end
 
 	def test_config_base
-		Configurable.base = File.expand_path(File.dirname(__FILE__) + '/../..')
+		Configurable.base = File.expand_path(File.dirname(__FILE__) + '/../../config')
 		h = HasConfig.new
 		h.config_file 'host.config', 'host'
 		assert_not_nil h.config

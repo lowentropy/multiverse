@@ -1,4 +1,6 @@
-req File.expand_path(File.dirname(__FILE__) + '/../host/ping.rb')
+log 'requiring host file...'
+
+req File.expand_path(File.dirname(__FILE__) + '/../host.rb')
 
 fun :start do
 	Thread.pass
@@ -6,11 +8,9 @@ end
 
 log 'mapping test handler...'
 
-map(:test) do
-	map(/ping/) do
-		fun :test do
-			log 'running test...'
-			raise 'TODO'
-		end
+map(:ping) do
+	fun :test do
+		log 'running test...'
+		# TODO
 	end
 end

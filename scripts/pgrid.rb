@@ -1,4 +1,3 @@
-
 collection(/grid/, PGrid) do
 
 	attributes :uid, :prefix, :links, :size

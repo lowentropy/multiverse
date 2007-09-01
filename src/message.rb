@@ -84,8 +84,8 @@ class Message
 	end
 
 	def self.next_line(text)
-		index = text.index "\n"
-		[text[0,index], text[index+1..-1]]
+		index = text.index("\n") || text.size
+		[text[0,index], text[index+1..-1] || '']
 	end
 
 end

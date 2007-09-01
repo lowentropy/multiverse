@@ -49,7 +49,7 @@ module REST
 		end
 
 		%w(entity store behavior).each do |pattern|
-			define_method "rout_to_#{pattern}" do |host,parent,instance,path,index|
+			define_method "route_to_#{pattern}" do |host,parent,instance,path,index|
 				collection = instance_variable_get "@#{pattern.pluralize}"
 				collection.each do |sub|
 					vis, klass = *sub
