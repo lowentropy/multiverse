@@ -26,19 +26,20 @@ class Server < Mongrel::HttpHandler
 
 		Configurable.base = File.expand_path(File.dirname(__FILE__) + '/../config')
 		config_file 'host.config', 'host'
+		config_log options[:log]
 		config_options options
 		config_default(
-			:port => 4000,
-			:default_lang => :ruby,
-			:default_env => :host)
+			'port' => 4000,
+			'default_lang' => 'ruby',
+			'default_env' => 'host')
 
-		config_log
-
-		@localhost = Host.new(nil, ['localhost', config[:port]])
+		@log.debug "port = #{config['port']}"
+		@log.debug "log = #{config['log'].inspect}"
+		@localhost = Host.new(nil, ['localhost', config['port']])
 	end
 
 	# hook an in-memory environment into this server
-	def attach(env, name=@options[:default_env])
+	def attach(env, name=config['default_env'].to_sym)
 		env_in, host_out = IO.pipe
 		host_in, env_out = IO.pipe
 		env.set_io env_in, env_out
@@ -56,7 +57,7 @@ class Server < Mongrel::HttpHandler
 
 	# load a script into an environment. start the
 	# environment if it doesn't exist yet
-	def load(env=@options[:default_env], options={}, *scripts)
+	def load(env=config['default_env'].to_sym, options={}, *scripts)
 		create(env, options) unless @pipes[env]
 		scripts.each do |script|
 			send_to_pipe @pipes[env], Message.new(:load, @localhost, nil, {:file => script})
@@ -64,11 +65,11 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# create an environment in a new process attached via FIFO
-	def create(name=@options[:default_env], options={})
+	def create(name=config['default_env'].to_sym, options={})
 		path = File.dirname(__FILE__)
-		lang = options[:lang] || config[:default_lang]
+		lang = options[:lang] || config['default_lang'].to_sym
 		command = case lang
-			when :ruby then "ruby #{path}/ruby-script.rb"
+			when :ruby then "ruby #{path}/ruby-script.rb | tee out"
 			else raise "unknown script language #{lang}"
 		end
 		io = IO.popen(command, 'w+')
@@ -81,7 +82,7 @@ class Server < Mongrel::HttpHandler
 	def start
 		@shutdown = false
 		@pipes.values.each {|pipe| send_to_pipe pipe, Message.system(:start)}
-		@http = Mongrel::HttpServer.new '0.0.0.0', config[:port].to_s
+		@http = Mongrel::HttpServer.new '0.0.0.0', config['port'].to_s
 		@http.register "/", self
 		@thread = @http.run
 		trap('INT') do
@@ -117,6 +118,7 @@ class Server < Mongrel::HttpHandler
 			@log.debug "sending quit to #{env}"
 			send_to_pipe @pipes[env], Message.system(:quit, :timeout => 1)
 		end
+		Thread.pass while @environments.any?
 		@shutdown = true
 	end
 
@@ -167,6 +169,7 @@ class Server < Mongrel::HttpHandler
 		# status messages
 		when :started, :quit
 			env_log name, "environment #{msg.command}"
+			@environments.delete name if msg.command == :quit
 		end
 
 		nil
@@ -247,8 +250,12 @@ class Server < Mongrel::HttpHandler
 		msg = Message.new(:action, @localhost, url, params)
 		send_to_pipe @pipes[env], msg
 		reply = wait_for_reply_to msg
-		env_err env, reply[:body] if reply[:code] >= @min_error_code
-		[reply[:code], reply[:body]]
+		if reply[:error]
+			[500, reply[:error]]
+		else
+			env_err env, reply[:body] if reply[:code] >= @min_error_code
+			[reply[:code], reply[:body]]
+		end
 	end
 
 	# wait for an environment to reply to a request

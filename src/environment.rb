@@ -309,10 +309,10 @@ class Environment
 		Thread.new(self, path, params) do |env,path,params|
 			log "resolving path (#{path})..."
 			map_id, action = env.resolve_path path, params
-			log "resolving action (#{map_id}: #{action})..."
+			log "resolving action (#{map_id}: #{action.inspect})..."
 			block = env.resolve_action map_id, action, params
-			log "performing action..."
 			if block
+				log "performing action..."
 				$_params = params
 				begin
 					env.sandbox &block
@@ -333,7 +333,8 @@ class Environment
 			map_id = resolve_part map_id, parts.shift, path, params
 			return nil, nil unless map_id
 		end
-		return map_id, parts.shift
+		part = parts.shift || ''
+		return map_id, part
 	end
 
 	# resolve part of a path
@@ -357,7 +358,8 @@ class Environment
 	# resolve action name in map context into block
 	def resolve_action(map_id, action, params)
 		return nil unless map_id && action
-		block = @listeners[map_id][action]
+		block, visibility = @listeners[map_id][action]
+		# TODO: check visibility
 		host_error(:no_action, path, params) if block.nil?
 		return block
 	end
@@ -453,12 +455,11 @@ class Environment
 	# if it's inside a map block, it will be used
 	# as a message handler
 	def function(name, &block)
-		name = name.to_sym
 		if @map_id
 			@listeners[@map_id] ||= {}.taint
 			@listeners[@map_id][name] = [block, @protection_level]
 		else
-			@functions[current_state][name] = block
+			@functions[current_state][name.to_sym] = block
 		end
 	end
 	alias :fun :function
@@ -527,6 +528,7 @@ class Environment
 
 	# reply to a GET or POST
 	def reply(params = {})
+		params[:code] ||= 200 unless params[:error]
 		params[:message_id] = $_params[:message_id]
 		@outbox << [:reply, nil, nil, params]
 	end

@@ -2,6 +2,19 @@ $: << File.expand_path(File.dirname(__FILE__))
 
 require 'yaml'
 
+class Hash
+	def merge_recursive(other)
+		merge(other) do |key,old,new|
+			new.kind_of?(Hash) ? old.merge_recursive(new) : new
+		end
+	end
+	def merge_recursive!(other)
+		merge!(other) do |key,old,new|
+			new.kind_of?(Hash) ? old.merge_recursive(new) : new
+		end
+	end
+end
+
 module Configurable
 
 	@@base = '.'
@@ -11,8 +24,7 @@ module Configurable
 	end
 
 	def config_options(options={})
-		config = self.config
-		config.merge!(options.merge(config))
+		config.merge_recursive! options
 	end
 
 	def config_tree(key, root=config(true), sec=@section.clone)

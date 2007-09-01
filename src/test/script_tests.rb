@@ -8,31 +8,22 @@ require 'test/unit'
 class ScriptTests < Test::Unit::TestCase
 
 	def setup
-		puts "TEST: setting up..."
-		@server = Server.new
+		@server = Server.new :log => {:level => :fatal}, 'port' => 4000
 		@host = Host.new(nil, ['localhost', 4000])
 	end
 
 	def teardown
-		puts "TEST: shutting down..."
+		return unless @server
 		@server.shutdown
-		puts "TEST: joining..."
 		@server.join
-		puts "TEST: all done."
 	rescue Mongrel::StopServer => e
-		puts "TEST: stopped???"
 	end
 
 	def test_ping
-		puts "TEST: loading scripts..."
 		@server.load :host, {}, '../../scripts/test/ping_test.rb'
-		sleep 1
-
-		puts "TEST: starting server..."
+		sleep 0.5
 		@server.start
-		sleep 1
 
-		puts "TEST: making request..."
 		code, response = @server.post @host, '/ping'
 		puts "BODY: #{response}" if code != 200
 		assert_equal 200, code

@@ -17,7 +17,7 @@ class MVTestSuite
 		suite << SandboxTests.suite
 		suite << EnvironmentTests.suite
 		suite << UntraceTests.suite
-#		suite << ScriptTests.suite
+		suite << ScriptTests.suite
 		suite << InstanceExecTests.suite
 		suite << ConfigTests.suite
 		return suite
