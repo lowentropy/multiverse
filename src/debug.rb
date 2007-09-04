@@ -17,10 +17,10 @@ module Debug
 		end
 	end
 
-	def config_log(options=nil)
+	def config_log(name=self.class.name, options=nil)
 		return unless respond_to? :config
 		options ||= {}
-		@log = Logger.new self.class.name
+		@log = Logger.new name
 		opts = config_tree('log')
 		opts = opts['log'] if opts
 		opts ||= (config['log'] = {'level' => 'debug', 'trace' => true, 'file' => nil})

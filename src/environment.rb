@@ -53,7 +53,7 @@ class Environment
 	# add script-accessible (unsafe) functions
 	def add_script_commands
 		%w(	map current_state resource req
-				require k goto klass delegate
+				require k goto klass delegate quit
 				state function fun reply pass err
 				private public params outbox log).each do |cmd|
 			@sandbox.delegate cmd.to_sym, self
@@ -314,20 +314,21 @@ class Environment
 	# call an action on the environment
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
-			log "resolving path (#{path})..."
+			dbg "resolving path (#{path})..."
 			map_id, action = env.resolve_path path, params
-			log "resolving action (#{map_id}: #{action.inspect})..."
+			dbg "resolving action (#{map_id.inspect}: #{action.inspect})"
 			block = env.resolve_action map_id, action, params
 			if block
-				log "performing action..."
+				dbg "performing action..."
 				$_params = params
 				begin
 					env.sandbox &block
 				rescue Exception => e
 					reply :error => format_error(e)
 				end
+				reply unless $_params[:replied]
 			else
-				@outbox << [:not_found, nil, params.merge({:path => path})]
+				@outbox << [:not_found, nil, nil, params.merge({:path => path})]
 			end
 		end
 	end
@@ -348,7 +349,7 @@ class Environment
 	def resolve_part(map_id, part, path, params)
 		log "resolving part (#{part})..."
 		if @url_patterns[map_id].nil?
-			return(host_error :no_path, path, params)
+			return(host_error(:no_path, path, params))
 		end
 		ids = @url_patterns[map_id].keys.select do |pattern|
 			pattern =~ part
@@ -365,15 +366,14 @@ class Environment
 	# resolve action name in map context into block
 	def resolve_action(map_id, action, params)
 		return nil unless map_id && action
-		block, visibility = @listeners[map_id][action]
+		block, visibility = @listeners[map_id][action.to_sym]
 		# TODO: check visibility
-		host_error(:no_action, path, params) if block.nil?
 		return block
 	end
 
 	# send error message to host controller
 	def host_error(error, path, params)
-		@outbox << [error, nil, path, params]
+		@outbox << [error, nil, nil, params.merge({:path => path})]
 		nil
 	end
 
@@ -463,11 +463,17 @@ class Environment
 		@state[0] = state
 	end
 
+	# exit the state machine
+	def quit
+		@exit = true
+	end
+
 	# declare a function in this state
 	# if it's inside a map block, it will be used
 	# as a message handler
 	def function(name, &block)
 		if @map_id
+			log "mapping listener #{@map_id}/#{name}"
 			@listeners[@map_id] ||= {}.taint
 			@listeners[@map_id][name] = [block, @protection_level]
 		else
@@ -536,18 +542,22 @@ class Environment
 		Thread.pass
 	end
 
-	# TODO: always reply, even if it is with 'empty response'
-
 	# reply to a GET or POST
 	def reply(params = {})
 		params[:code] ||= 200 unless params[:error]
 		params[:message_id] = $_params[:message_id]
 		@outbox << [:reply, nil, nil, params]
+		$_params[:replied] = true
+	end
+
+	# send a debug message
+	def dbg(msg)
+		log msg, :level => :debug
 	end
 
 	# send a log message
-	def log(msg)
-		@outbox << [:log, nil, nil, {:message => msg}]
+	def log(msg, options={})
+		@outbox << [:log, nil, nil, options.merge({:message => msg})]
 	end
 
 	# send an error message

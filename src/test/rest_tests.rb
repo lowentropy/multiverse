@@ -9,7 +9,7 @@ require 'rest/rest'
 class RestTests < Test::Unit::TestCase
 
 	def setup
-		@server = Server.new :log => {:level => :debug}, 'port' => 4000
+		@server = Server.new :log => {:level => :fatal}, 'port' => 4000
 		@host = Host.new(nil, ['localhost', 4000])
 	end
 

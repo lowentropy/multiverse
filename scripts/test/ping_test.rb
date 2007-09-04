@@ -8,9 +8,8 @@ end
 
 log 'mapping test handler...'
 
-map(:ping) do
-	fun '' do
+map(:test) do
+	fun :ping do
 		log 'running test...'
-		reply
 	end
 end

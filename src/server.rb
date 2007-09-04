@@ -26,7 +26,7 @@ class Server < Mongrel::HttpHandler
 
 		Configurable.base = File.expand_path(File.dirname(__FILE__) + '/../config')
 		config_file 'host.config', 'host'
-		config_log options[:log]
+		config_log config['address'], options[:log]
 		config_options options
 		config_default(
 			'port' => 4000,
@@ -77,7 +77,7 @@ class Server < Mongrel::HttpHandler
 		path = File.dirname(__FILE__)
 		lang = options[:lang] || config['default_lang'].to_sym
 		command = case lang
-			when :ruby then "ruby #{path}/ruby-script.rb | tee out"
+			when :ruby then "ruby #{path}/ruby-script.rb"
 			else raise "unknown script language #{lang}"
 		end
 		io = IO.popen(command, 'w+')
@@ -161,13 +161,13 @@ class Server < Mongrel::HttpHandler
 		# inline error responses
 		when :no_command, :no_path, :ambiguous_path
 			msg[:code] = 500
-			msg[:body] = msg.to_s
+			msg[:body] = "#{msg.command.replace(/_/,' ')}: #{msg[:path]}"
 			@env_replies << msg
 
 		# 404 error response from environment
 		when :not_found
 			msg[:code] = 404
-			msg[:body] = "not found: #{msg.url}"
+			msg[:body] = "not found: #{msg[:path]}"
 			@env_replies << msg
 
 		# requests to other hosts are handled inline
@@ -181,11 +181,12 @@ class Server < Mongrel::HttpHandler
 
 		# script url map command
 		when :map
-			map name, msg.params[:regex], msg.params[:handler_id]
+			return map(name, msg.params[:regex], msg.params[:handler_id])
 
 		# out-of-band bookkeeping
 		when :log, :error
-			send "env_#{msg.command}", name, msg[:message]
+			level = msg[:level] || :info
+			send "env_#{msg.command}", name, msg[:message], level
 			@env_replies << msg
 
 		# status messages
@@ -207,7 +208,8 @@ class Server < Mongrel::HttpHandler
 	def map(name, regex, handler_id)
 		# FIXME: there should be scope restrictions for security
 		@maps[regex] = [name, handler_id]
-		Message.new :mapped, @localhost, nil, {:status => :ok}
+		@log.info "mapped #{regex} to #{name}, id = #{handler_id}"
+		Message.system(:mapped, :status => :ok)
 	end
 
 	# error from the environment
@@ -217,8 +219,8 @@ class Server < Mongrel::HttpHandler
 	alias :env_error :env_err
 
 	# log message from the environment
-	def env_log(name, msg)
-		@log.info "#{name}: #{msg}"
+	def env_log(name, msg, level=:info)
+		@log.send level.to_s, "#{name}: #{msg}"
 	end
 
 	# process HTTP request

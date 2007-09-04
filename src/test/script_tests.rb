@@ -8,7 +8,7 @@ require 'test/unit'
 class ScriptTests < Test::Unit::TestCase
 
 	def setup
-		@server = Server.new :log => {:level => :debug}, 'port' => 4000
+		@server = Server.new :log => {:level => :fatal}, 'port' => 4000
 		@host = Host.new(nil, ['localhost', 4000])
 	end
 
@@ -25,7 +25,7 @@ class ScriptTests < Test::Unit::TestCase
 		@server.start
 		sleep 0.5
 
-		code, response = @server.post @host, '/ping'
+		code, response = @server.post @host, '/test/ping'
 		puts "BODY: #{response}" if code != 200
 		assert_equal 200, code
 	end

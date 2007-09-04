@@ -9,6 +9,7 @@ require 'untrace_tests'
 require 'script_tests'
 require 'instance_exec_tests'
 require 'config_tests'
+require 'rest_tests'
 
 class MVTestSuite
 	def self.suite
@@ -20,6 +21,7 @@ class MVTestSuite
 		suite << ScriptTests.suite
 		suite << InstanceExecTests.suite
 		suite << ConfigTests.suite
+		suite << RestTests.suite
 		return suite
 	end
 end
