@@ -29,32 +29,37 @@ class ObjectPipe
 
 	def initialize(input=$stdin, output=$stdout, &unmarshal)
 		@in, @out, @unmarshal = input, output, unmarshal
+		@read, @write = Mutex.new, Mutex.new
 	end
 
 	def read
 		return nil unless @in
 		begin
-			sep = @in.read 10
-			return nil if !sep or sep.empty?
-			raise "separator was '#{sep}'" unless sep == "---------\n"
-			len = @in.readline.strip.to_i
-			text = @in.read len
-			term = @in.read 10
-			raise "terminator was '#{term}'" unless term == "---------\n"
-			@unmarshal.call text
+			@read.synchronize do
+				sep = @in.read 10
+				return nil if !sep or sep.empty?
+				raise "separator was '#{sep}'" unless sep == "---------\n"
+				len = @in.readline.strip.to_i
+				text = @in.read len
+				term = @in.read 10
+				raise "terminator was '#{term}'" unless term == "---------\n"
+				@unmarshal.call text
+			end
 		rescue EOFError => e
 			nil
 		end
 	end
 
-	def write(object)
+	def write(object, flush=true)
 		return unless @out and not @out.closed?
 		text = object.marshal
-		@out.puts "---------"
-		@out.puts text.size.to_s
-		@out.write text
-		@out.puts "---------"
-		@out.flush
+		@write.synchronize do
+			@out.puts "---------"
+			@out.puts text.size.to_s
+			@out.write text
+			@out.puts "---------"
+			@out.flush if flush
+		end
 	end
 
 	def close

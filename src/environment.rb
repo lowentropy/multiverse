@@ -14,10 +14,9 @@ class Environment
 	include Untrace
 
 	attr_accessor :name
-	attr_reader :localhost
 
 	# set stuff up, taint some of it
-	def initialize(input=$stdin, output=$stdout)
+	def initialize(input=$stdin, output=$stdout, in_memory=false)
 		@pipe = MessagePipe.new input, output
 		@included = []
 		@inbox = []
@@ -33,7 +32,8 @@ class Environment
 		@outbox = [].taint
 		@url_patterns = {}.taint
 		@listeners = {}.taint
-		@localhost = 'localhost'.to_host
+		@in_memory = in_memory
+		@quit_sent = false
 		state(:global) {}
 		start_io_threads
 		add_script_commands
@@ -151,7 +151,7 @@ class Environment
 	# the start message is recieved or start! is called.
 	def run
 		Thread.pass until @start
-		@outbox << [:started, localhost, nil]
+		@outbox << [:started, nil, nil]
 		Thread.pass
 		@main_thread = Thread.new(self) do |env|
 			env.script_main
@@ -171,7 +171,6 @@ class Environment
 
 	# main script loop
 	def script_main
-		@error = []
 		@sandbox[:main_thread] = Thread.current
 		$env = self
 		begin untraced(2,4) do
@@ -181,8 +180,8 @@ class Environment
 					Thread.pass
 				end
 			end; end
-		rescue
-			@error << $!
+		rescue Exception => e
+			err format_error(e)
 		end
 		done!
 		nil
@@ -203,10 +202,11 @@ class Environment
 	# join the environment's main thread. calls to join may block
 	# and may throw exceptions from scripts.
 	def join(timeout=nil)
-		@main_thread.join(timeout) if @main_thread
-		@pipe_thread.join(timeout) if @pipe_thread
-		@io_thread.join(timeout) if @io_thread
-		fail(@error[0]) if @error[0]
+		@main_thread.join(@timeout||timeout) if @main_thread
+		@pipe_thread.join(@timeout||timeout) if @pipe_thread
+		@io_thread.join(@timeout||timeout) if @io_thread
+		# fail(@error[0]) if @error and @error[0]
+		exit unless @in_memory
 		nil
 	end
 
@@ -218,8 +218,11 @@ class Environment
 
 	# first, tell the script to exit, then tell IO to stop
 	# (which it won't until the script does)
-	def shutdown!
-		@pipe.write Message.new(:quit, localhost)
+	def shutdown!(message_id=nil)
+		return if @shutdown
+		@pipe.write Message.system(:quit, :message_id => message_id,
+			:message => "shutdown? = #{shutdown?}, pipe_close = #{@pipe_closed}, quit_sent = #{@quit_sent}, done = #{@done}")
+		@quit_sent = true
 		@sandbox[:exit] = true
 		@shutdown = true
 	end
@@ -237,6 +240,7 @@ class Environment
 				sync :inbox do
 					@inbox << message
 				end
+				break if message.command == :quit
 			end
 			Thread.pass
 		end
@@ -245,12 +249,13 @@ class Environment
 
 	# io processing loop
 	def io_main
-		until shutdown? && @pipe_closed
+		until shutdown? && @pipe_closed && @quit_sent
 			handle_messages
 			send_messages
 			Thread.pass
 		end
 		@pipe.close
+		@io_done = true
 	end
 
 	# handle messages in inbox
@@ -276,21 +281,23 @@ class Environment
 
 	# handle a message
 	def handle(message)
+		log "received #{message.command}" unless message.command == :quit
 		begin
 			case message.command
 			when :start then @start = true
 			when :quit
-				shutdown!
-				join message[:timeout] # FIXME: ???
-			when :load then add_script message[:file]
+				shutdown!(message[:message_id])
+				@timeout = message[:timeout] # FIXME: ???
+			when :load then
+				add_script message[:file]
+				@outbox << [:loaded, nil, nil, message.params]
 			when :mapped then nil
 			when :reply then handle_reply message
 			when :action then action message.url, message.params
-			else @outbox << [	:no_command, localhost,
-												'/' + message.command.to_s, message.params]
+			else @outbox << [:no_command, nil, nil, message.params]
 			end
 		rescue Exception => e
-			err format_error(e)
+			err format_error(e), message[:message_id]
 		end
 	end
 
@@ -320,7 +327,7 @@ class Environment
 					reply :error => format_error(e)
 				end
 			else
-				@outbox << [:not_found, localhost, path, params]
+				@outbox << [:not_found, nil, params.merge({:path => path})]
 			end
 		end
 	end
@@ -378,7 +385,12 @@ class Environment
 	# send outgoing message to host
 	def send_message(message)
 		command, host, url, params, result, done = message
-		@pipe.write Message.new(command, host, url, params)
+		@pipe.write(if not (host or url)
+			Message.system(command, params)
+		else
+			Message.new(command, host, url, params)
+		end)
+		
 		if [:get, :post].include? command
 			wait_for_reply_to message, result, done
 		end
@@ -539,8 +551,8 @@ class Environment
 	end
 
 	# send an error message
-	def err(msg)
-		@outbox << [:error, nil, nil, {:message => msg}]
+	def err(msg, message_id=nil)
+		@outbox << [:error, nil, nil, {:message => msg, :message_id => message_id}]
 	end
 
 	# try to call a script-defined function

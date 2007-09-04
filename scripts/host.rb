@@ -14,7 +14,4 @@ public
 		host.directory << Message.unmarshal(params[:host])
 	end
 
-	fun :ping do
-		reply
-	end
 end

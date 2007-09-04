@@ -10,9 +10,7 @@ module REST
 	# a store of a certain type of entity, and zero or more behaviors
 	#		GET = index
 	#		POST = add
-	class Store << Pattern
-
-		attr_reader :instance
+	class Store < Pattern
 
 		def initialize(klass, regex, &block)
 			super(regex, :index, :find, :add)
@@ -48,7 +46,7 @@ module REST
 		# routers
 		def route(host, parent, instance, path, index)
 			%w(entity collection behavior).each do |pattern|
-				return true if send "route_to_#{pattern}" host, parent, instance, path, index
+				return true if send("route_to_#{pattern}", host, parent, instance, path, index)
 			end
 			return true if route_to_dynamic host, parent, instance, path, index
 			false
@@ -61,7 +59,7 @@ module REST
 					vis, klass = *sub
 					if sub.regex =~ path[index]
 						host.assert_visibility vis
-						return klass.handle host, instance, klass.instance, path, index+1
+						return klass.handle(host, instance, klass.instance(instance, path[index]), path, index+1)
 					end
 				end
 				false
@@ -72,7 +70,8 @@ module REST
 		def route_to_dynamic(host, parent, instance, path, index)
 			if @entity.regex =~ path[index]
 				object = find host, path[index]
-				return @entity.handle host, instance, object, path, index+1
+				set_parent_and_path(object, instance, path[index])
+				return(@entity.handle host, instance, object, path, index+1)
 			end
 			false
 		end

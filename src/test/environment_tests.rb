@@ -9,7 +9,7 @@ class EnvironmentTests < Test::Unit::TestCase
 	def setup
 		@host_in, @pipe_out = IO.pipe
 		@pipe_in, @host_out = IO.pipe
-		@env = Environment.new @pipe_in, @pipe_out
+		@env = Environment.new @pipe_in, @pipe_out, true
 		@pipe = MessagePipe.new @host_in, @host_out
 		@env.add_script 'default', 'fun(:start) { }'
 	end

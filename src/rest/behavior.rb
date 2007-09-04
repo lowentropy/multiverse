@@ -1,4 +1,4 @@
-$: << File.expand_path(File.dirname(__FILE__)
+$: << File.expand_path(File.dirname(__FILE__))
 
 require 'rest'
 require 'pattern'
@@ -7,7 +7,7 @@ module REST
 
 	# a behavior is a named action taking a POST
 	#		POST = call
-	class Behavior << Pattern
+	class Behavior < Pattern
 
 		def initialize(regex, &block)
 			super(regex)

@@ -33,7 +33,7 @@ class UntraceTests < Test::Unit::TestCase
 
 	def test_env_untrace
 		begin
-			@env = Environment.new
+			@env = Environment.new $stdin, $stdout, true
 			@env.add_script 'test', <<END
 fun :foo do	
 	raise "foo"

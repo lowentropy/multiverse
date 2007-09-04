@@ -58,9 +58,17 @@ class Server < Mongrel::HttpHandler
 	# load a script into an environment. start the
 	# environment if it doesn't exist yet
 	def load(env=config['default_env'].to_sym, options={}, *scripts)
-		create(env, options) unless @pipes[env]
+		unless @pipes[env]
+			@log.debug "creating new env #{env}"
+			create(env, options)
+		end
 		scripts.each do |script|
-			send_to_pipe @pipes[env], Message.new(:load, @localhost, nil, {:file => script})
+			@log.debug "attempting to load #{script}"
+			load_msg = Message.system(:load, :file => script)
+			send_to_pipe @pipes[env], load_msg
+			reply = wait_for_reply_to load_msg
+			@log.debug "loaded or failed to load #{script}"
+			raise reply[:error] if reply[:error]
 		end
 	end
 
@@ -86,7 +94,7 @@ class Server < Mongrel::HttpHandler
 		@http.register "/", self
 		@thread = @http.run
 		trap('INT') do
-			@log.warn "interrupted: shutting down"
+			@log.fatal "interrupted: shutting down"
 			shutdown
 			join 0.5
 		end
@@ -103,7 +111,11 @@ class Server < Mongrel::HttpHandler
 	def pipe_main(name, pipe)
 		until @shutdown
 			reply = debug "pipe.read" do
-				handle_msg name, pipe.read
+				begin
+					handle_msg name, pipe.read
+				rescue IOError => e
+					next
+				end
 			end
 			send_to_pipe pipe, reply if reply
 			Thread.pass unless @shutdown
@@ -118,17 +130,26 @@ class Server < Mongrel::HttpHandler
 			@log.debug "sending quit to #{env}"
 			send_to_pipe @pipes[env], Message.system(:quit, :timeout => 1)
 		end
-		Thread.pass while @environments.any?
+		@log.info "waiting for environments to complete"
+		while @environments.any?
+			@log.debug "remaining environments: #{@environments.keys.inspect}"
+			sleep 1
+		end
+		@log.info "all environments now complete"
 		@shutdown = true
 	end
 
 	# join w/ the server thread
 	def join(timeout=nil)
 		until @pipe_threads.empty?
+			@log.debug "waiting for pipe thread..."
 			thread = @pipe_threads.shift
 			thread.join timeout if thread
+			@log.debug "pipe thread done."
 		end
+		@log.debug "waiting for main thread..."
 		@thread.join timeout if @thread
+		@log.debug "main thread done."
 	end
 
 	# handle a message from the pipe
@@ -155,7 +176,7 @@ class Server < Mongrel::HttpHandler
 			return Message.new(:reply, msg.host, msg.url, {:code => code, :body => body})
 
 		# replies are handled by another thread
-		when :reply
+		when :reply, :loaded
 			@env_replies << msg
 
 		# script url map command
@@ -165,14 +186,21 @@ class Server < Mongrel::HttpHandler
 		# out-of-band bookkeeping
 		when :log, :error
 			send "env_#{msg.command}", name, msg[:message]
+			@env_replies << msg
 
 		# status messages
 		when :started, :quit
-			env_log name, "environment #{msg.command}"
-			@environments.delete name if msg.command == :quit
+			env_log name, "environment #{msg.command}: #{msg[:message]}"
+			remove_env name if msg.command == :quit
 		end
 
 		nil
+	end
+
+	# remove the env from active status
+	def remove_env(name)
+		@environments.delete name
+		@pipes.delete(name).close
 	end
 
 	# map a url regex to an environment handler id

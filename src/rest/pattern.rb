@@ -5,7 +5,7 @@ module REST
 	module PatternInstance
 		attr_reader :uri
 		def redirect
-			# TODO: return 302 to self.uri
+			reply :code => 302, :body => uri
 		end
 		def render
 			@map = {}
@@ -13,6 +13,8 @@ module REST
 				@map[attr] = send attr
 			end
 			# TODO: render @map with requested media type or extension
+			# for now, rendering as yaml
+			reply :code => 200, :body => @map.to_yaml
 		end
 		def parse(path)
 			m = @regex.match path
@@ -38,13 +40,20 @@ module REST
 			parts.each do |part|
 				@model.attr_reader part
 				entity(part,nil) do
-					# TODO: accessors should be more intelligent...
-					# TODO: route should set @parent and @uri
-					# TODO: set @path and @regex on @model
 					show { @parent.send part }
 					update { @parent.send "#{part}=", body }
 				end
 			end
+		end
+
+		def instance(parent, path)
+			set_parent_and_path(@instance, parent, path)
+		end
+
+		def set_parent_and_path(object, parent, path)
+			object.instance_variable_set :@parent, parent
+			object.instance_variable_set :@uri, path
+			object
 		end
 
 		def method_missing(id, *args, &block)

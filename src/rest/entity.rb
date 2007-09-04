@@ -10,7 +10,7 @@ module REST
 	#		GET = show
 	#		PUT = new/update
 	#		DELETE = delete
-	class Entity << Pattern
+	class Entity < Pattern
 
 		def initialize(klass, regex, &block)
 			super(regex, :show, :delete, :update, :new)
@@ -20,11 +20,7 @@ module REST
 			@stores = []
 			@entity.extend PatternInstance
 			instance_eval &block
-		end
-
-		# lazy init (because it's only used for singletons)
-		def instance
-			@instance ||= @entity.new
+			@instance = @entity.new # note: for singletons only
 		end
 
 		# sub-pattern declarations
@@ -43,7 +39,7 @@ module REST
 		# routers
 		def route(host, parent, instance, path, index)
 			%w(entity store behavior).each do |pattern|
-				return true if send "route_to_#{pattern}" host, parent, instance, path, index
+				return true if send("route_to_#{pattern}", host, parent, instance(parent, path), path, index)
 			end
 			false
 		end
@@ -55,7 +51,7 @@ module REST
 					vis, klass = *sub
 					if klass.regex =~ path[index]
 						host.assert_visibility vis
-						return klass.handle host, instance, klass.instance, path, index+1
+						return klass.handle(host, instance, klass.instance(instance, path), path, index+1)
 					end
 				end
 				false
