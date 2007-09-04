@@ -25,7 +25,7 @@ class ScriptTests < Test::Unit::TestCase
 		@server.start
 		sleep 0.5
 
-		code, response = @server.post @host, '/test/ping'
+		code, response = @server.post @host, '/ping'
 		puts "BODY: #{response}" if code != 200
 		assert_equal 200, code
 	end

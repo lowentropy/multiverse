@@ -281,7 +281,6 @@ class Environment
 
 	# handle a message
 	def handle(message)
-		log "received #{message.command}" unless message.command == :quit
 		begin
 			case message.command
 			when :start then @start = true
@@ -314,12 +313,9 @@ class Environment
 	# call an action on the environment
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
-			dbg "resolving path (#{path})..."
 			map_id, action = env.resolve_path path, params
-			dbg "resolving action (#{map_id.inspect}: #{action.inspect})"
 			block = env.resolve_action map_id, action, params
 			if block
-				dbg "performing action..."
 				$_params = params
 				begin
 					env.sandbox &block
@@ -347,7 +343,6 @@ class Environment
 
 	# resolve part of a path
 	def resolve_part(map_id, part, path, params)
-		log "resolving part (#{part})..."
 		if @url_patterns[map_id].nil?
 			return(host_error(:no_path, path, params))
 		end
@@ -366,7 +361,8 @@ class Environment
 	# resolve action name in map context into block
 	def resolve_action(map_id, action, params)
 		return nil unless map_id && action
-		block, visibility = @listeners[map_id][action.to_sym]
+		action = action.to_sym unless action == ""
+		block, visibility = @listeners[map_id][action]
 		# TODO: check visibility
 		return block
 	end
@@ -385,12 +381,13 @@ class Environment
 	# send outgoing message to host
 	def send_message(message)
 		command, host, url, params, result, done = message
+
 		@pipe.write(if not (host or url)
 			Message.system(command, params)
 		else
 			Message.new(command, host, url, params)
 		end)
-		
+
 		if [:get, :post].include? command
 			wait_for_reply_to message, result, done
 		end

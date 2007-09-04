@@ -213,8 +213,8 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# error from the environment
-	def env_err(name, msg)
-		@log.error "#{name}: #{msg}"
+	def env_err(name, msg, level)
+		@log.send level, "#{name}: #{msg}"
 	end
 	alias :env_error :env_err
 
