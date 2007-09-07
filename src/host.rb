@@ -26,6 +26,11 @@ class String
 		host, port = split ':'
 		Host.new($env, [host, port || 4000])
 	end
+	def to_host_info
+		$stderr.puts "getting info for #{self.inspect}"
+		$stderr.flush
+		split ':'
+	end
 end
 
 class Symbol
@@ -41,6 +46,22 @@ class Host
 
 	def initialize(env, info)
 		@env, @info = env, info
+	end
+
+	def host
+		@info[0]
+	end
+	
+	def port
+		@info[1]
+	end
+
+	def [](path)
+		if path[0,1] == '/'
+			"http://#{info.join(':')}#{path}"
+		else
+			"#{path}"
+		end
 	end
 
 	def put(url, params={})

@@ -7,6 +7,11 @@ require 'behavior'
 
 module REST
 
+	module StoreInstance
+		extend PatternInstance
+		# TODO
+	end
+
 	# a store of a certain type of entity, and zero or more behaviors
 	#		GET = index
 	#		POST = add
@@ -17,14 +22,14 @@ module REST
 			@store = klass
 			@static = {}
 			@behaviors = []
+			@model = Module.new {}
+			@model.instance_variable_set :@store, self
+			@model.extend StoreInstance
 			instance_eval &block
 			create_instance
 		end
 
 		def create_instance
-			@model = Module.new {}
-			@model.instance_variable_set :store, self
-			@model.extend StoreInstance
 			@instance = @store.new
 			@instance.extend @model
 		end

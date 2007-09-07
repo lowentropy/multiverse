@@ -5,6 +5,8 @@ require 'sandbox'
 require 'pipe'
 require 'host'
 require 'untrace'
+require 'rest/rest'
+require 'uri'
 
 
 # Script environment handles states, functions, classes,
@@ -12,6 +14,7 @@ require 'untrace'
 class Environment
 
 	include Untrace
+	include REST
 
 	attr_accessor :name
 
@@ -22,6 +25,7 @@ class Environment
 		@inbox = []
 		@replies = []
 		@sandbox = Sandbox.new
+		@sandbox.extend REST
 		@mutex = Mutex.new
 		@state = [:global].taint
 		@classes = {}.taint
@@ -93,10 +97,11 @@ class Environment
 				@required = [].taint
 				# repeat until script and dependencies are loaded
 				while true
-					sandbox(:script => name, :text => text) do
+					sandbox(:script => name, :text => text, :env => self) do
 						error = [].taint
-						Thread.new(@script, @text, error, self) do |script,text,error,box|
+						Thread.new(@script, @text, error, self, @env) do |script,text,error,box,env|
 							$SAFE = 0
+							$env = env
 							begin
 								box.untraced(0,3) do
 									begin
@@ -220,8 +225,7 @@ class Environment
 	# (which it won't until the script does)
 	def shutdown!(message_id=nil)
 		return if @shutdown
-		@pipe.write Message.system(:quit, :message_id => message_id,
-			:message => "shutdown? = #{shutdown?}, pipe_close = #{@pipe_closed}, quit_sent = #{@quit_sent}, done = #{@done}")
+		@pipe.write Message.system(:quit, :message_id => message_id)
 		@quit_sent = true
 		@sandbox[:exit] = true
 		@shutdown = true
@@ -302,7 +306,9 @@ class Environment
 
 	# handle a GET or POST message reply
 	def handle_reply(message)
-		@replies << message
+		sync :replies do
+			@replies << message
+		end
 	end
 
 	# delete a reply from the incoming array
@@ -317,6 +323,7 @@ class Environment
 			block = env.resolve_action map_id, action, params
 			if block
 				$_params = params
+				$env = env
 				begin
 					env.sandbox &block
 				rescue Exception => e
@@ -382,26 +389,45 @@ class Environment
 	def send_message(message)
 		command, host, url, params, result, done = message
 
-		@pipe.write(if not (host or url)
+		msg = if not (host or url)
 			Message.system(command, params)
 		else
 			Message.new(command, host, url, params)
-		end)
-
-		if [:get, :post].include? command
-			wait_for_reply_to message, result, done
 		end
+
+		@pipe.write msg
+
+		begin
+			if [:get, :post, :put, :delete].include? command
+				wait_for_reply_to msg, result, done
+			end
+		rescue Exception => e
+			err format_error(e)
+		end
+
 		nil
 	end
 
 	# wait for a reply in a new thread
 	def wait_for_reply_to(message, result, status)
 		Thread.new(self) do |env|
-			@replies.each do |reply|
-				next unless reply.replies_to? message
-				env.sync(:replies) { env.delete_reply reply }
-				status << reply[:error] || :ok
-				result << reply
+			begin
+				found = false
+				while !found
+					sync :replies do
+						@replies.each do |reply|
+							next unless reply.replies_to? message
+							env.delete_reply reply
+							status << reply[:error] || :ok
+							result << reply
+							found = true
+							break
+						end
+					end
+					Thread.pass
+				end
+			rescue Exception => e
+				err format_error(e)
 			end
 		end
 	end
@@ -537,6 +563,18 @@ class Environment
 	# thread pass
 	def pass
 		Thread.pass
+	end
+
+	%w(get put post delete).each do |method|
+		define_method method do |url,body,params|
+			uri = URI.parse url
+			host = "#{uri.host}:#{uri.port}"
+			result, status = [], []
+			@outbox << [method.to_sym, host, uri.path, params.merge({:body => body}), result, status]
+			Thread.pass while result.empty?
+			reply = result[0]
+			[reply[:code], reply[:body]]
+		end
 	end
 
 	# reply to a GET or POST

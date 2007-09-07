@@ -7,6 +7,7 @@ require 'net/http'
 require 'mongrel'
 require 'config'
 require 'debug'
+require 'host'
 require 'uri'
 
 
@@ -22,7 +23,7 @@ class Server < Mongrel::HttpHandler
 		@environments = {}
 		@pipe_threads = []
 		@env_replies = []
-		@min_error_code = 400
+		@min_error_code = 500
 
 		Configurable.base = File.expand_path(File.dirname(__FILE__) + '/../config')
 		config_file 'host.config', 'host'
@@ -77,7 +78,7 @@ class Server < Mongrel::HttpHandler
 		path = File.dirname(__FILE__)
 		lang = options[:lang] || config['default_lang'].to_sym
 		command = case lang
-			when :ruby then "ruby #{path}/ruby-script.rb"
+			when :ruby then "ruby #{path}/ruby-script.rb | tee out"
 			else raise "unknown script language #{lang}"
 		end
 		io = IO.popen(command, 'w+')
@@ -127,6 +128,7 @@ class Server < Mongrel::HttpHandler
 	def shutdown
 		@http.stop if @http
 		@environments.keys.each do |env|
+			next unless @pipes[env]
 			@log.debug "sending quit to #{env}"
 			send_to_pipe @pipes[env], Message.system(:quit, :timeout => 1)
 		end
@@ -172,8 +174,9 @@ class Server < Mongrel::HttpHandler
 
 		# requests to other hosts are handled inline
 		when :get, :put, :post, :delete
-			code, body = send msg.command, msg.host, msg.url, msg.params
-			return Message.new(:reply, msg.host, msg.url, {:code => code, :body => body})
+			host = msg.host.host ? msg.host : @localhost
+			code, body = send msg.command, host, msg.url, msg.params.delete(:body), msg.params
+			return Message.new(:reply, msg.host, msg.url, {:code => code, :body => body, :message_id => msg[:message_id]})
 
 		# replies are handled by another thread
 		when :reply, :loaded
@@ -240,6 +243,7 @@ class Server < Mongrel::HttpHandler
 
 	# send a message through a local pipe
 	def send_to_pipe(pipe, message)
+		return unless pipe
 		pipe.write message
 	end
 
@@ -276,14 +280,14 @@ class Server < Mongrel::HttpHandler
 			:handler_id => handler_id,
 			:method => method})
 
-		@log.debug "contacting handle"
+		@log.debug "contacting handler"
 		msg = Message.new(:action, @localhost, url, params)
 		send_to_pipe @pipes[env], msg
 		reply = wait_for_reply_to msg
 		if reply[:error]
 			[500, reply[:error]]
 		else
-			env_err env, reply[:body] if reply[:code] >= @min_error_code
+			env_err env, reply[:body], :error if reply[:code] >= @min_error_code
 			[reply[:code], reply[:body]]
 		end
 	end
@@ -291,7 +295,6 @@ class Server < Mongrel::HttpHandler
 	# wait for an environment to reply to a request
 	# reply returned must respond to [:code] and [:body]
 	def wait_for_reply_to(msg)
-		@log.debug "waiting for reply"
 		until @shutdown
 			@env_replies.each do |reply|
 				if reply.id == msg.id
@@ -323,10 +326,13 @@ class Server < Mongrel::HttpHandler
 
 	# command requests
 	%w(get put post delete).each do |command|
-		define_method command do |host,path,*params|
+		define_method command do |host,path,*rest|
 			debug "server.#{command}" do
+				body = rest.shift || ''
+				params = rest.shift || {}
 				req = eval "Net::HTTP::#{command.capitalize}.new(path)"
-				req.set_form_data(params[0] || {})
+				req.body = body if req.request_body_permitted?
+				req.set_form_data(params)
 				res = Net::HTTP.start(*host.info) {|http| http.request req }
 				[res.code.to_i, res.body]
 			end

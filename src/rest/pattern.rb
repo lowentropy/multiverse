@@ -35,12 +35,22 @@ module REST
 			@actions = actions
 		end
 
+		def attributes(*attrs)
+			attrs.each do |attribute|
+				@model.send :attr_accessor, attribute
+				entity(attribute,nil) do
+					get { @parent.send attribute }
+					update { @parent.send "#{attribute}=", body }
+				end
+			end
+		end
+
 		def path(*parts)
 			@parts = parts
 			parts.each do |part|
-				@model.attr_reader part
+				@model.send :attr_reader, part
 				entity(part,nil) do
-					show { @parent.send part }
+					get { @parent.send part }
 					update { @parent.send "#{part}=", body }
 				end
 			end

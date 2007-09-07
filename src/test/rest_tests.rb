@@ -9,7 +9,7 @@ require 'rest/rest'
 class RestTests < Test::Unit::TestCase
 
 	def setup
-		@server = Server.new :log => {:level => :fatal}, 'port' => 4000
+		@server = Server.new :log => {:level => :info}, 'port' => 4000
 		@host = Host.new(nil, ['localhost', 4000])
 	end
 
@@ -20,8 +20,8 @@ class RestTests < Test::Unit::TestCase
 	rescue Mongrel::StopServer => e
 	end
 
-	%w|foo|.each do |test|
-	#%w|top_entity top_behavior top_store|.each do |test|
+	#%w|foo top_entity top_behavior top_store|.each do |test|
+	%w|top_entity|.each do |test|
 		define_method "test_#{test}" do
 			assert_nothing_raised do
 				@server.load :host, {}, "../../scripts/test/rest/#{test}.rb"
