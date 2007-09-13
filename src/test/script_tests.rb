@@ -8,6 +8,7 @@ require 'test/unit'
 class ScriptTests < Test::Unit::TestCase
 
 	def setup
+		sleep 0.5
 		@server = Server.new :log => {:level => :fatal}, 'port' => 4000
 		@host = Host.new(nil, ['localhost', 4000])
 	end

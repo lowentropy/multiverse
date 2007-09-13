@@ -49,22 +49,22 @@ module REST
 		end
 
 		# routers
-		def route(host, parent, instance, path, index)
+		def route(parent, instance, path, index)
 			%w(entity collection behavior).each do |pattern|
-				return true if send("route_to_#{pattern}", host, parent, instance, path, index)
+				return true if send("route_to_#{pattern}", parent, instance, path, index)
 			end
-			return true if route_to_dynamic host, parent, instance, path, index
+			return true if route_to_dynamic parent, instance, path, index
 			false
 		end
 
 		%w(entity collection behavior).each do |pattern|
-			define_method "route_to_#{pattern}" do |host,parent,instance,path,index|
+			define_method "route_to_#{pattern}" do |parent,instance,path,index|
 				collection = instance_variable_get "@#{pattern.pluralize}"
 				collection.each do |sub|
 					vis, klass = *sub
 					if sub.regex =~ path[index]
-						host.assert_visibility vis
-						return klass.handle(host, instance, klass.instance(instance, path[index]), path, index+1)
+						assert_visibility vis
+						return klass.handle(instance, klass.instance(instance, path[index]), path, index+1)
 					end
 				end
 				false
@@ -72,38 +72,36 @@ module REST
 		end
 
 		# dynamic routing
-		def route_to_dynamic(host, parent, instance, path, index)
+		def route_to_dynamic(parent, instance, path, index)
 			if @entity.regex =~ path[index]
-				object = find host, path[index]
+				object = find path[index]
 				set_parent_and_path(object, instance, path[index])
-				return(@entity.handle host, instance, object, path, index+1)
+				return(@entity.handle instance, object, path, index+1)
 			end
 			false
 		end
 
-		def find(host, path)
+		def find(path)
 			parts = @entity.parse path
 			vis, block = @find
-			host.assert_visibility vis
+			assert_visibility vis
 			instance.instance_exec *parts, &block
 		end
 
 		# REST responders
-		def get(host, path)
+		def get(path)
 			vis, block = @index
-			host.assert_visibility vis
-			reply = run_handler :path => path, &block
-			host.reply_with reply
+			assert_visibility vis
+			run_handler :path => path, &block
 		end
 
-		def post(host, path, body, params)
-			entity = @entity.new host, path, body, params
+		def post(path, body, params)
+			entity = @entity.new path, body, params
 			vis, block = @add
-			host.assert_visibility vis
+			assert_visibility vis
 			run_handler :path => path, :body => body, :params => params do
 				block.call entity
 			end
-			host.reply_with :nothing
 		end
 	end
 

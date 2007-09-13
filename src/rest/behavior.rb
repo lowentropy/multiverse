@@ -28,9 +28,8 @@ module REST
 		end
 		
 		# REST responders
-		def post(host, parent, path, body, params)
-			reply = run_handler parent, :path => path, :params => params, &@block
-			host.reply_with reply
+		def post(parent, path, body, params)
+			run_handler parent, :path => path, :params => params, &@block
 		end
 	end
 	

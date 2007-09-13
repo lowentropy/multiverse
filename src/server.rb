@@ -17,6 +17,8 @@ class Server < Mongrel::HttpHandler
 	include Debug
 	include Configurable
 
+	attr_reader :localhost
+
 	def initialize(options={})
 		@pipes = {}
 		@maps = {}

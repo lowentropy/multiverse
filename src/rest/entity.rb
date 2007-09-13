@@ -30,25 +30,22 @@ module REST
 		end
 
 		# REST responders
-		def get(host, parent, path)
+		def get(parent, path)
 			vis, block = @show
-			host.assert_visibility vis
-			reply = run_handler :path => path, &block
-			host.reply_with reply
-		end
-
-		def put(host, parent, path, body, params)
-			vis, block = @update
-			host.assert_visibility vis
-			reply = run_handler :path => path, :body => body, :params => params, &block
-			host.reply_with reply
-		end
-
-		def delete(host, parent, path)
-			vis, block = @delete
-			host.assert_visibility vis
+			assert_visibility vis
 			run_handler :path => path, &block
-			host.reply_with :nothing
+		end
+
+		def put(parent, path, body, params)
+			vis, block = @update
+			assert_visibility vis
+			run_handler :path => path, :body => body, :params => params, &block
+		end
+
+		def delete(parent, path)
+			vis, block = @delete
+			assert_visibility vis
+			run_handler :path => path, &block
 		end
 	end
 
@@ -86,9 +83,9 @@ module REST
 		end
 
 		# routers
-		def route(host, parent, instance, path, index)
+		def route(parent, instance, path, index)
 			%w(entity store behavior).each do |pattern|
-				return true if send("route_to_#{pattern}", host, parent, instance(parent, path), path, index)
+				return true if send("route_to_#{pattern}", parent, instance(parent, path), path, index)
 			end
 			false
 		end
@@ -110,13 +107,13 @@ module REST
 
 		# sub-patterns
 		%w(entity store behavior).each do |pattern|
-			define_method "route_to_#{pattern}" do |host,parent,instance,path,index|
+			define_method "route_to_#{pattern}" do |parent,instance,path,index|
 				collection = instance_variable_get "@#{pattern.pluralize}"
 				collection.each do |sub|
 					vis, klass = *sub
 					if klass.regex =~ path[index]
-						host.assert_visibility vis
-						return klass.handle(host, instance, klass.instance(instance, path), path, index+1)
+						assert_visibility vis
+						return klass.handle(instance, klass.instance(instance, path), path, index+1)
 					end
 				end
 				false

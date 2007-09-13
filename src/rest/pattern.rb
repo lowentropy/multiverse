@@ -5,7 +5,7 @@ module REST
 	module PatternInstance
 		attr_reader :uri
 		def redirect
-			reply :code => 302, :body => uri
+			$env.reply :code => 302, :body => uri
 		end
 		def render
 			@map = {}
@@ -14,7 +14,7 @@ module REST
 			end
 			# TODO: render @map with requested media type or extension
 			# for now, rendering as yaml
-			reply :code => 200, :body => @map.to_yaml
+			$env.reply :code => 200, :body => @map.to_yaml
 		end
 		def parse(path)
 			m = @regex.match path
@@ -33,6 +33,12 @@ module REST
 			@regex = regex
 			@visibility = :public
 			@actions = actions
+		end
+
+		def map
+			$env.handle @regex do
+				self.handle nil, instance, $path.split('/'), 0
+			end
 		end
 
 		def attributes(*attrs)
@@ -78,13 +84,14 @@ module REST
 		def run_handler(instance, *globals, &block)
 			Thread.new(instance, block, globals) do |instance,block,globals|
 				globals.each {|name,value| eval "$#{name} = value"}
-				instance ? instance.instance_exec(&block) : block.call
+				value = instance ? instance.instance_exec(&block) : block.call
+				value.render if value && value.respond_to?(:render) # TODO: not for DELETE, others?
 			end.join
 		end
 
-		def handle(host, parent, instance, path, index)
+		def handle(parent, instance, path, index)
 			if path[index]
-				route host, parent, instance, path, index
+				route parent, instance, path, index
 			else
 				instance
 			end

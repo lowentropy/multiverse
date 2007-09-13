@@ -21,3 +21,5 @@ map :rest do
 		end
 	end
 end
+
+map_rest

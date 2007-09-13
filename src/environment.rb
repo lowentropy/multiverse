@@ -36,12 +36,18 @@ class Environment
 		@outbox = [].taint
 		@url_patterns = {}.taint
 		@listeners = {}.taint
+		@handlers = {}.taint
 		@in_memory = in_memory
 		@quit_sent = false
 		state(:global) {}
 		start_io_threads
 		add_script_commands
 		add_script_variables
+	end
+
+	# reset the input/output pipes
+	def set_io(input, output)
+		@pipe = MessagePipe.new input, output
 	end
 
 	# start IO processing threads
@@ -111,7 +117,7 @@ class Environment
 										fail e
 									end
 								end
-							rescue
+							rescue Exception => e
 								error << $!
 							end
 						end.join
@@ -129,6 +135,12 @@ class Environment
 					end
 				end
 			end
+		end
+	rescue Exception => e
+		$stderr.puts $!
+		$stderr.puts $!.backtrace
+		unless @in_memory
+			err format_error($!)
 		end
 	end
 
@@ -296,6 +308,7 @@ class Environment
 				@outbox << [:loaded, nil, nil, message.params]
 			when :mapped then nil
 			when :reply then handle_reply message
+			# TODO: get source host in action message
 			when :action then action message.url, message.params
 			else @outbox << [:no_command, nil, nil, message.params]
 			end
@@ -319,10 +332,16 @@ class Environment
 	# call an action on the environment
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
-			map_id, action = env.resolve_path path, params
-			block = env.resolve_action map_id, action, params
+			# first look for a handler
+			block = resolve_handler path
+			# otherwise look for an action
+			unless block
+				map_id, action = env.resolve_path path, params
+				block = env.resolve_action map_id, action, params
+			end
 			if block
 				$_params = params
+				# TODO: set source host
 				$env = env
 				begin
 					env.sandbox &block
@@ -334,6 +353,15 @@ class Environment
 				@outbox << [:not_found, nil, nil, params.merge({:path => path})]
 			end
 		end
+	end
+
+	# look up a handler for this path
+	def resolve_handler(path)
+		parts = path.split('/').reject {|s| s.empty?}
+		@handlers.each do |regex,block|
+			return block if regex =~ parts[0]
+		end
+		nil
 	end
 
 	# resolve path into map context and action name
@@ -505,6 +533,13 @@ class Environment
 	end
 	alias :fun :function
 
+	# declare a url map that is also a function,
+	# which is the same as a map block containing
+	# a function which handles all requests
+	def handle(regex, &block)
+		@handlers[regex] = block
+	end
+
 	# declare a new class in this state
 	def klass(name, parent=nil, &block)
 		parent = k(parent) if parent
@@ -568,7 +603,7 @@ class Environment
 	%w(get put post delete).each do |method|
 		define_method method do |url,body,params|
 			uri = URI.parse url
-			host = "#{uri.host}:#{uri.port}"
+			host = "#{uri.host}:#{uri.port}".to_host
 			result, status = [], []
 			@outbox << [method.to_sym, host, uri.path, params.merge({:body => body}), result, status]
 			Thread.pass while result.empty?
