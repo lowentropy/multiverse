@@ -59,7 +59,9 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# load a script into an environment. start the
-	# environment if it doesn't exist yet
+	# environment if it doesn't exist yet. this
+	# function will block until an error occurs or
+	# the scripts are loaded
 	def load(env=config['default_env'].to_sym, options={}, *scripts)
 		unless @pipes[env]
 			@log.debug "creating new env #{env}"
@@ -70,7 +72,7 @@ class Server < Mongrel::HttpHandler
 			load_msg = Message.system(:load, :file => script)
 			send_to_pipe @pipes[env], load_msg
 			reply = wait_for_reply_to load_msg
-			@log.debug "loaded or failed to load #{script}"
+			@log.debug "loaded #{script}"
 			raise reply[:error] if reply[:error]
 		end
 	end

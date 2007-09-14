@@ -2,11 +2,13 @@ $: << File.dirname(__FILE__)
 
 require 'thread'
 require 'sandbox'
+require 'delegator'
 require 'pipe'
 require 'host'
 require 'untrace'
 require 'rest/rest'
 require 'uri'
+require 'ext'
 
 
 # Script environment handles states, functions, classes,
@@ -14,7 +16,7 @@ require 'uri'
 class Environment
 
 	include Untrace
-	include REST
+	extend PartialDelegator
 
 	attr_accessor :name
 
@@ -63,11 +65,12 @@ class Environment
 	# add script-accessible (unsafe) functions
 	def add_script_commands
 		%w(	map current_state resource req
-				require k goto klass delegate quit
+				require k goto klass quit <<
 				state function fun reply pass err
-				private public params outbox log).each do |cmd|
+				private public params outbox log
+				entity behavior store handle
+				get put post delete).each do |cmd|
 			@sandbox.delegate cmd.to_sym, self
-			@sandbox.delegate nil, self
 		end
 	end
 
@@ -105,19 +108,19 @@ class Environment
 				while true
 					sandbox(:script => name, :text => text, :env => self) do
 						error = [].taint
-						Thread.new(@script, @text, error, self, @env) do |script,text,error,box,env|
+						Thread.new(@script, @text, error, self) do |script,text,error,box|
 							$SAFE = 0
-							$env = env
+							$env = box
 							begin
 								box.untraced(0,3) do
 									begin
 										box.instance_eval text, script
-									rescue Exception => e
-										box.rename_backtrace e, '(toplevel)'
-										fail e
+									rescue
+										box.rename_backtrace $!, '(toplevel)'
+										fail $!
 									end
 								end
-							rescue Exception => e
+							rescue
 								error << $!
 							end
 						end.join
@@ -135,12 +138,6 @@ class Environment
 					end
 				end
 			end
-		end
-	rescue Exception => e
-		$stderr.puts $!
-		$stderr.puts $!.backtrace
-		unless @in_memory
-			err format_error($!)
 		end
 	end
 
@@ -189,11 +186,11 @@ class Environment
 	# main script loop
 	def script_main
 		@sandbox[:main_thread] = Thread.current
-		$env = self
 		begin untraced(2,4) do
 			sandbox do
+				$env = self
 				until @exit
-					start
+					$env.start
 					Thread.pass
 				end
 			end; end
@@ -342,8 +339,8 @@ class Environment
 			if block
 				$_params = params
 				# TODO: set source host
-				$env = env
 				begin
+					$env = env.instance_variable_get :@sandbox
 					env.sandbox &block
 				rescue Exception => e
 					reply :error => format_error(e)
@@ -529,6 +526,7 @@ class Environment
 			@listeners[@map_id][name] = [block, @protection_level]
 		else
 			@functions[current_state][name.to_sym] = block
+			@sandbox.delegate name, self
 		end
 	end
 	alias :fun :function
@@ -536,9 +534,12 @@ class Environment
 	# declare a url map that is also a function,
 	# which is the same as a map block containing
 	# a function which handles all requests
-	def handle(regex, &block)
+	def listen(regex, &block)
 		@handlers[regex] = block
 	end
+
+	# delegates to REST
+	delegate "REST::", :entity, :behavior, :store, :map_rest
 
 	# declare a new class in this state
 	def klass(name, parent=nil, &block)
@@ -555,20 +556,6 @@ class Environment
 		goto name
 		sandbox &block
 		goto :global
-	end
-
-	# delegate handler methods to an object
-	def delegate(delegations = {})
-		delegations.each do |object,methods|
-			methods.each do |method|
-				action, fun = method.is_a?(Hash) ?
-					[method.keys[0], method.values[0]] :
-					[method, method]
-				fun action do
-					eval "$env.#{object}.#{fun}"
-				end
-			end
-		end
 	end
 
 	# protection level for message handlers;
@@ -654,14 +641,4 @@ class Environment
 		super id, *args
 	end
 
-end
-
-class String
-	def constantize
-		begin
-			eval self
-		rescue
-			self
-		end
-	end
 end

@@ -68,10 +68,13 @@ class Sandbox
 		untraced(2) do
 			name = id.id2name.to_sym
 			if @_delegates[name]
+				puts "found del" if name == "map_rest"
 				@_delegates[name].send name, *args, &block
 			elsif @_root_delegate
+				puts "found root del" if name == "map_rest"
 				@_root_delegate.send name, *args, &block
 			else
+				puts "calling super" if name == "map_rest"
 				super
 			end
 		end
