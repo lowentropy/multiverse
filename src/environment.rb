@@ -83,6 +83,7 @@ class Environment
 	end
 
 	# the given block will have no access to the environment
+	# except what is explicitly given above
 	def sandbox(args={}, &block)
 		@sandbox ||= Sandbox.new
 		args.each {|arg,val| @sandbox[arg] = val}

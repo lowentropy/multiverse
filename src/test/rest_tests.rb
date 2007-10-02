@@ -10,7 +10,7 @@ class RestTests < Test::Unit::TestCase
 
 	def setup
 		begin
-			@server = Server.new :log => {:level => :debug}, 'port' => 4000
+			@server = Server.new :log => {:level => :fatal}, 'port' => 4000
 			@host = @server.localhost
 		rescue Exception => e
 			puts e
@@ -28,7 +28,7 @@ class RestTests < Test::Unit::TestCase
 	#%w|foo top_entity top_behavior top_store|.each do |test|
 	%w|top_entity|.each do |test|
 		define_method "test_#{test}" do
-			begin
+		#	begin
 				@server.load :host, {}, "../../scripts/test/rest/#{test}.rb"
 				sleep 0.5
 				@server.start
@@ -36,10 +36,10 @@ class RestTests < Test::Unit::TestCase
 				code, response = @server.post @host, '/rest/test'
 				puts "BODY: #{response}" if code != 200
 				assert_equal 200, code
-			rescue Exception => e
-				puts e
-				puts e.backtrace
-			end
+		#	rescue Exception => e
+		#		puts e
+		#		puts e.backtrace
+		#	end
 		end
 	end
 

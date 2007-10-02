@@ -4,6 +4,25 @@ require 'test/unit'
 require 'config'
 
 
+class Array
+	def inject_with_index(value=0, &block)
+		each_with_index do |x,i|
+			value = yield value, x, i
+		end
+		value
+	end
+	def without(i)
+		self[0,i] + self[i+1..-1]
+	end
+	def permute
+		return self if empty?
+		return [self] if size == 1
+		inject_with_index([]) do |a,x,i|
+			a + without(i).permute.map {|p| [x,*p]}
+		end
+	end
+end
+
 class ConfigTests < Test::Unit::TestCase
 
 	class HasConfig
@@ -19,6 +38,12 @@ class ConfigTests < Test::Unit::TestCase
 c: d
 :a: :b
 		END
+		class << @yaml
+			def permute
+				lines = split /\r?\n/
+				lines[1..-1].permute.map {|p| [lines[0], *p].join("\n")}
+			end
+		end
 	end
 
 	def test_initialize
@@ -32,7 +57,8 @@ c: d
 	end
 
 	def test_to_yaml
-		assert_equal(@yaml, Configuration.new(@hash).to_yaml)
+		actual = Configuration.new(@hash).to_yaml.strip
+		assert @yaml.permute.include?(actual)
 	end
 
 	def test_parse_yaml
@@ -53,14 +79,14 @@ c: d
 		end
 		config = Configuration.load('temp')
 		config.save!
-		assert_equal @yaml, File.read('temp')
+		assert @yaml.permute.include?(File.read('temp').strip)
 	end
 
 	def test_save_new_file
 		config = Configuration.new(@hash)
 		config.filename = 'temp'
 		config.save!
-		assert_equal @yaml, File.read('temp')
+		assert @yaml.permute.include?(File.read('temp').strip)
 	end
 
 	def test_save_nofile
