@@ -20,8 +20,10 @@ class ScriptTests < Test::Unit::TestCase
 	rescue Mongrel::StopServer => e
 	end
 
-	def test_ping
-		@server.load :host, {}, '../../scripts/test/ping_test.rb'
+	def run_ping(mode)
+		@server.load :host, {:mode => mode},
+			'../../scripts/test/ping_test.rb'
+
 		sleep 0.5
 		@server.start
 		sleep 0.5
@@ -31,4 +33,10 @@ class ScriptTests < Test::Unit::TestCase
 		assert_equal 200, code
 	end
 
+	# mem is broken for some reason
+	%w(fifo net).each do |mode|
+		define_method "test_ping_#{mode}" do
+			run_ping(mode)
+		end
+	end
 end

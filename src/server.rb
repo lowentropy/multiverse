@@ -5,6 +5,7 @@ $:.unshift File.dirname(__FILE__)
 require 'rubygems'
 require 'net/http'
 require 'mongrel'
+require 'socket'
 require 'config'
 require 'debug'
 require 'host'
@@ -22,6 +23,8 @@ class Server < Mongrel::HttpHandler
 	def initialize(options={})
 		@pipes = {}
 		@maps = {}
+		@ports = {}
+		@env_port = 4000
 		@environments = {}
 		@pipe_threads = []
 		@env_replies = []
@@ -34,11 +37,17 @@ class Server < Mongrel::HttpHandler
 		config_default(
 			'port' => 4000,
 			'default_lang' => 'ruby',
-			'default_env' => 'host')
+			'default_env' => 'host',
+			'default_environment_mode' => 'mem')
 
 		@log.debug "port = #{config['port']}"
 		@log.debug "log = #{config['log'].inspect}"
 		@localhost = Host.new(nil, ['localhost', config['port']])
+	end
+
+	# get next available script port
+	def next_port
+		@env_port += 1
 	end
 
 	# hook an in-memory environment into this server
@@ -66,6 +75,7 @@ class Server < Mongrel::HttpHandler
 		unless @pipes[env]
 			@log.debug "creating new env #{env}"
 			create(env, options)
+			@log.debug "created env #{env}"
 		end
 		scripts.each do |script|
 			@log.debug "attempting to load #{script}"
@@ -77,15 +87,42 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
-	# create an environment in a new process attached via FIFO
+	# create a new environment by some selected mode
 	def create(name=config['default_env'].to_sym, options={})
+		mode = options[:mode] || config['default_environment_mode']
+		send "create_#{mode}", name, options
+	end
+
+	# create an environment in a new process attached via socket
+	def create_net(name=config['default_env'].to_sym, options={})
+		IO.popen(script_command("--port #{@ports[name] ||= next_port}"))
+		sleep 0.5
+		create_io name, TCPSocket.new('127.0.0.1', @ports[name]), options
+	end
+
+	# create an environment that we load and talk to natively (fastest)
+	def create_mem(name=config['default_env'].to_sym, options={})
+		attach Environment.new, name
+	end
+
+	# get the command for running a script
+	def script_command(arguments="", options={})
 		path = File.dirname(__FILE__)
 		lang = options[:lang] || config['default_lang'].to_sym
 		command = case lang
-			when :ruby then "ruby #{path}/ruby-script.rb | tee out"
+			when :ruby then "ruby #{path}/ruby-script.rb #{arguments}"
 			else raise "unknown script language #{lang}"
 		end
-		io = IO.popen(command, 'w+')
+	end
+
+	# create an environment in a new process attached via FIFO
+	def create_fifo(name=config['default_env'].to_sym, options={})
+		command = script_command "| tee out"
+		create_io name, IO.popen(command, 'w+'), options
+	end
+
+	# create a new environment attached to the given IO pipe
+	def create_io(name, io, options={})
 		pipe = MessagePipe.new io, io
 		add_env name, nil, pipe
 		start_pipe_thread name, pipe
