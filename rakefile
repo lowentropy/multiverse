@@ -1,0 +1,37 @@
+require 'rake'
+
+task :default => [:rdoc, :test]
+
+
+# require 'spec/rake/spectask'
+# desc "Run all examples"
+# Spec::Rake::SpecTask.new do |t|
+#   t.spec_files = FileList['examples/**/*.rb']
+#   # t.warning = true
+#   t.rcov = true
+# end
+
+require 'rake/rdoctask'
+desc 'Generate documentation'
+Rake::RDocTask.new do |rdoc|
+  # rdoc.rdoc_dir = "doc"
+  rdoc.rdoc_files.include('README', 'COPYING', 'src/**/*.rb')
+  rdoc.options << "--quiet"
+end
+
+require 'rake/testtask'
+desc 'Execute tests'
+Rake::TestTask.new do |t|
+  t.libs << "src"
+  t.test_files = FileList['test/*.rb']
+  t.verbose = true
+end
+
+require 'rcov/rcovtask'
+desc 'Check test coverage'
+Rcov::RcovTask.new do |t|
+  t.libs << "src"
+  t.test_files = FileList['test/*.rb']
+  t.output_dir = 'coverage'
+  t.verbose = true
+end

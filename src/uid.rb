@@ -1,6 +1,3 @@
-$: << File.dirname(__FILE__)
-
-
 class UID
 
 	# generate a random 128-bit number

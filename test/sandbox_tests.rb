@@ -1,5 +1,3 @@
-$: << File.expand_path(File.dirname(__FILE__) + '/..')
-
 require 'test/unit'
 require 'sandbox'
 
@@ -19,18 +17,10 @@ class SandboxTests < Test::Unit::TestCase
 		# set up SAFE=4 -level blocks
 		Thread.new(block,kind_of,is_nil) do |block,assert_kind_of,assert_nil|
 			$SAFE = 4
-			block << proc do
-				$stdout.write ''
-			end
-			block << proc do
-				@foo = 'foo'
-			end
-			block << proc do
-				assert_nil @sandbox
-			end
-			block << proc do
-				assert_kind_of.call Sandbox, self
-			end
+			block << proc { $stdout.write '' }
+    	block << proc { @foo = 'foo' }
+    	block << proc { assert_nil @sandbox }
+			block << proc { assert_kind_of.call Sandbox, self }
 		end.join
 		
 		# no printing in safe blcok
@@ -65,11 +55,13 @@ class SandboxTests < Test::Unit::TestCase
 		@sandbox.sandbox do
 			@bar << @foo
 		end
+		
 		assert_equal 'foo', bar[0]
 	end
 
 	def test_function
 		@sandbox.delegate :foo, self
+		
 		assert_equal 216, @sandbox.foo
 	end
 
@@ -85,6 +77,7 @@ class SandboxTests < Test::Unit::TestCase
 		val = []
 		@sandbox.delegate :foo, self
 		@sandbox.delegate :bar, self
+		
 		assert_equal 216, @sandbox.bar
 	end
 

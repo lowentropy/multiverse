@@ -1,5 +1,3 @@
-$: << File.expand_path(File.dirname(__FILE__) + '/..')
-
 require 'test/unit'
 require 'environment'
 
@@ -55,7 +53,7 @@ END
 		@env.join 0
 	end
 
-	def test_many_messages
+	def test_should_handle_many_messages
 		$env = @env
 		n = 100
 		n.times {|i| 'foo'.to_host.put '/test', :n => i}
