@@ -1,7 +1,3 @@
-
-
-Innoth1m
-
 #
 # Multiverse - p2p online virtual community
 # Copyright (C) 2007  Nathan C. Matthews <lowentropy@gmail.com>
