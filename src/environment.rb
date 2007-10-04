@@ -444,8 +444,8 @@ class Environment
 						@replies.each do |reply|
 							next unless reply.replies_to? message
 							env.delete_reply reply
-							status << reply[:error] || :ok
 							result << reply
+							status << reply[:error] || :ok
 							found = true
 							break
 						end

@@ -18,6 +18,43 @@ class Object
 		end
 	end
 end
+#
+# This code is to prevent DOS attacks by hiding some
+# builtin methods of Ruby's Thread class:
+# critical= and abort_on_exception=.
+class Thread
+	
+	# this inner class allows code running at $SAFE==0
+	# to access critical=.
+	class CritContainer
+		def initialize(crit)
+			@crit = crit
+		end
+		def set(*args)
+			raise "safe threads can't go critical" if $SAFE > 0
+			@crit.call *args
+		end
+		def instance_variable_get(*args)
+			raise "somebody's trying to be naughty!"
+		end
+	end
+
+	# store the old critical= method into a hidden wrapper
+	@@crit = CritContainer.new(method(:critical=))
+
+	# redefine critical= to use the safe wrapper
+	def self.critical=(*args)
+		@@crit.set *args
+	end
+
+	# don't allow any access to abort_on_exception=
+	def self.abort_on_exception=(*args)
+		raise "somebody's trying to be naughty!"
+	end
+	def abort_on_exception=(*args)
+		raise "somebody's trying to be naughty!"
+	end
+end
 
 class String
 	def constantize
