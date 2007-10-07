@@ -36,8 +36,8 @@ class ScriptTests < Test::Unit::TestCase
   def test_should_ping_successfully_in_net_mode
     run_ping("net")
   end
-  # def test_should_ping_successfully_in_mem_mode
-  #   run_ping("mem")
-  # end
+  #def test_should_ping_successfully_in_mem_mode
+  #  run_ping("mem")
+  #end
     
 end

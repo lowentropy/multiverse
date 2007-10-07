@@ -205,7 +205,7 @@ class Server < Mongrel::HttpHandler
 
 	# hook an in-memory environment into this server
 	def attach(env, name=config['default_env'].to_sym)
-		in_buf, out_buf = [], []
+		in_buf, out_buf = Buffer.new, Buffer.new
 		pipe = MemoryPipe.new in_buf, out_buf
 		env.set_io out_buf, in_buf, 'MemoryPipe'
 		add_env name, env, pipe

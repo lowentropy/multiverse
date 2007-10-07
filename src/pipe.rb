@@ -21,6 +21,7 @@
 $: << File.dirname(__FILE__)
 
 require 'message'
+require 'thread'
 
 
 # Objects to be sent over pipe should have marshal
@@ -74,6 +75,21 @@ class MessagePipe < ObjectPipe
 	def initialize(input=$stdin, output=$stdout)
 		super(input, output) do |text|
 			Message.unmarshal text
+		end
+	end
+end
+
+
+class Buffer < Array
+	def initialize(*args)
+		@mutex = Mutex.new
+		super(*args)
+	end
+	%w(<< [] []= shift push pop).each do |method|
+		define_method method do |*args|
+			@mutex.synchronize do
+				super *args
+			end
 		end
 	end
 end
