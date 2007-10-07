@@ -40,9 +40,8 @@ end
 
 desc "Clean build directories"
 task :clean do
-  File::delete 'out' if File::exist? 'out'
-  
-  File::delete 'test/out' if File::exist? 'test/out'
+  File::delete '.out' if File::exist? '.out'
+  File::delete 'test/.out' if File::exist? 'test/.out'
   File::delete 'test/temp' if File::exist? 'test/temp'
   `rm -rf coverage`
   `rm -rf html`
