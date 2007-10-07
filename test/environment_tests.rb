@@ -53,12 +53,4 @@ END
 		@env.join 0
 	end
 
-  ## slow!
-  # def test_should_handle_many_messages
-  #   $env = @env
-  #   n = 100
-  #   n.times {|i| 'foo'.to_host.put '/test', :n => i}
-  #   n.times {@pipe.read}
-  # end
-
 end

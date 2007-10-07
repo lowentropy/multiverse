@@ -48,8 +48,8 @@ class Environment
 	end
 
 	# reset the input/output pipes
-	def set_io(input, output)
-		@pipe = MessagePipe.new input, output
+	def set_io(input, output, type='MessagePipe')
+		@pipe = type.constantize.new input, output
 	end
 
 	# start IO processing threads

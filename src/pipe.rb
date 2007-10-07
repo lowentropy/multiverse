@@ -79,3 +79,17 @@ class MessagePipe < ObjectPipe
 end
 
 
+# Message pipe in memory; doesn't use byte-based streams at all
+class MemoryPipe < MessagePipe
+	def initialize(input, output)
+		super(input, output)
+	end
+	def read
+		Thread.pass while @in.empty?
+		@in.shift
+	end
+	def write(object, flush=true)
+		@out << object
+	end
+	def close; end
+end

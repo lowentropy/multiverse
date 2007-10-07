@@ -1,7 +1,3 @@
-log 'requiring mutex...'
-
-req 'mutex'
-
 fun :start do
 	Thread.pass
 end

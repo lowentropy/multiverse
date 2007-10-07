@@ -27,6 +27,8 @@ Rake::TestTask.new do |t|
   t.verbose = true
 end
 
+require 'rubygems'
+require 'rcov'
 require 'rcov/rcovtask'
 desc 'Check test coverage'
 Rcov::RcovTask.new do |t|

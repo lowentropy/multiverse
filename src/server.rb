@@ -205,10 +205,9 @@ class Server < Mongrel::HttpHandler
 
 	# hook an in-memory environment into this server
 	def attach(env, name=config['default_env'].to_sym)
-		env_in, host_out = IO.pipe
-		host_in, env_out = IO.pipe
-		env.set_io env_in, env_out
-		pipe = MessagePipe.new host_in, host_out
+		in_buf, out_buf = [], []
+		pipe = MemoryPipe.new in_buf, out_buf
+		env.set_io out_buf, in_buf, 'MemoryPipe'
 		add_env name, env, pipe
 		start_pipe_thread name, pipe
 	end
@@ -225,7 +224,7 @@ class Server < Mongrel::HttpHandler
 
 	# create an environment in a new process attached via FIFO
 	def create_fifo(name=config['default_env'].to_sym, options={})
-		command = script_command "| tee out"
+		command = script_command "| tee .out"
 		create_io name, IO.popen(command, 'w+'), options
 	end
 
