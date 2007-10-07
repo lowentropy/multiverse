@@ -80,12 +80,15 @@ class MessagePipe < ObjectPipe
 end
 
 
+# Buffer is a mutex-synchronized subclass of Array.
+# Locks mutex on <<, [], []=, shift, push, pop, empty?, and clear.
+# XXX: test me
 class Buffer < Array
 	def initialize(*args)
 		@mutex = Mutex.new
 		super(*args)
 	end
-	%w(<< [] []= shift push pop).each do |method|
+	%w(<< [] []= shift push pop empty? clear).each do |method|
 		define_method method do |*args|
 			@mutex.synchronize do
 				super *args
@@ -95,17 +98,27 @@ class Buffer < Array
 end
 
 
-# Message pipe in memory; doesn't use byte-based streams at all
+# Message pipe in memory; doesn't use byte-based streams at all.
 class MemoryPipe < MessagePipe
+	attr_accessor :id
 	def initialize(input, output)
 		super(input, output)
+		@closed = false
 	end
 	def read
+		raise IOError.new("eof") if @closed
 		Thread.pass while @in.empty?
-		@in.shift
+		msg = @in.shift
+		if msg == :eof
+			@closed = true
+			return nil
+		end
+		msg
 	end
 	def write(object, flush=true)
 		@out << object
 	end
-	def close; end
+	def close
+		@out << :eof
+	end
 end

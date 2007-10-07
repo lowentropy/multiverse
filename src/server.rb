@@ -200,7 +200,7 @@ class Server < Mongrel::HttpHandler
 
 	# create an environment that we load and talk to natively (fastest)
 	def create_mem(name=config['default_env'].to_sym, options={})
-		attach Environment.new, name
+		attach Environment.new(nil, nil, true), name
 	end
 
 	# hook an in-memory environment into this server
@@ -245,7 +245,7 @@ class Server < Mongrel::HttpHandler
 	# handle a message from the pipe
 	def handle_msg(name, msg)
 		return nil if @shutdown
-		raise "null message" unless msg
+		return nil unless msg
 
 		case msg.command
 		# inline error responses

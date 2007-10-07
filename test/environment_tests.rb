@@ -1,14 +1,14 @@
 require 'test/unit'
-require 'environment'
-
+require 'src/environment'
 
 class EnvironmentTests < Test::Unit::TestCase
 
 	def setup
-		@host_in, @pipe_out = IO.pipe
-		@pipe_in, @host_out = IO.pipe
-		@env = Environment.new @pipe_in, @pipe_out, true
-		@pipe = MessagePipe.new @host_in, @host_out
+		in_buf, out_buf = Buffer.new, Buffer.new
+		# FIXME: this initialization sequence is STUPID.
+		@env = Environment.new nil, nil, true
+		@env.set_io out_buf, in_buf, 'MemoryPipe'
+		@pipe = MemoryPipe.new in_buf, out_buf
 		@env.add_script 'default', 'fun(:start) { }'
 	end
 

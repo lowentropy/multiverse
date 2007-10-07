@@ -22,7 +22,7 @@ class Environment
 
 	# set stuff up, taint some of it
 	def initialize(input=$stdin, output=$stdout, in_memory=false)
-		@pipe = MessagePipe.new input, output
+		@pipe = MessagePipe.new input, output unless in_memory
 		@included = []
 		@inbox = []
 		@replies = []
@@ -165,6 +165,8 @@ class Environment
 	# from self.join. won't actually execute scripts until
 	# the start message is recieved or start! is called.
 	def run
+		return if @trying_to_run
+		@trying_to_run = true
 		Thread.pass until @start
 		@outbox << [:started, nil, nil]
 		Thread.pass
@@ -249,6 +251,7 @@ class Environment
 	# pipe reader
 	def pipe_main
 		until shutdown?
+			Thread.pass until @pipe
 			message = @pipe.read
 			if message
 				sync :inbox do
@@ -297,7 +300,7 @@ class Environment
 	def handle(message)
 		begin
 			case message.command
-			when :start then @start = true
+			when :start then run!
 			when :quit
 				shutdown!(message[:message_id])
 				@timeout = message[:timeout] # FIXME: ???
@@ -307,7 +310,11 @@ class Environment
 			when :mapped then nil
 			when :reply then handle_reply message
 			# TODO: get source host in action message
-			when :action then action message.url, message.params
+			when :action
+				# FIXME: we need to decide when path is a string vs. URI
+				path = message.url
+				path = path.path if path.kind_of? URI
+				action path, message.params
 			else @outbox << [:no_command, nil, nil, message.params]
 			end
 		rescue Exception => e
@@ -330,15 +337,23 @@ class Environment
 	# call an action on the environment
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
-			# first look for a handler
-			block = resolve_handler path
-			# otherwise look for an action
-			unless block
-				map_id, action = env.resolve_path path, params
-				block = env.resolve_action map_id, action, params
+			$_params = params
+			begin
+				# first look for a handler
+				block = resolve_handler path
+				dbg "resolved handler for #{path}"
+				# otherwise look for an action
+				unless block
+					map_id, action = env.resolve_path path, params
+					dbg "resolved map for #{path}"
+					block = env.resolve_action map_id, action, params
+					dbg "found block for #{path}"
+				end
+			rescue Exception => e
+				reply :error => format_error(e)
 			end
 			if block
-				$_params = params
+				dbg "calling handler"
 				# TODO: set source host
 				begin
 					$env = env.instance_variable_get :@sandbox

@@ -37,7 +37,11 @@ class Message
 
 	def to_s
 		params = @params.map {|k,v| "#{k}=#{v}"}.join("&")
-		"#{command.to_s.upcase} http://#{host}#{url}?#{params}"
+		"#{command.to_s.upcase} #{proto}#{host}#{url}?#{params}"
+	end
+
+	def proto
+		(host or url) ? "http://" : "sys://localhost"
 	end
 
 	def replies_to?(message)
