@@ -1,8 +1,8 @@
 require 'test/unit'
-require 'environment'
-require 'server'
-require 'host'
-require 'rest/rest'
+require 'src/environment'
+require 'src/server'
+require 'src/host'
+require 'src/rest/rest'
 
 class RestTests < Test::Unit::TestCase
 	def setup
@@ -22,14 +22,31 @@ class RestTests < Test::Unit::TestCase
 	rescue Mongrel::StopServer => e
 	end
 
-	# repeat this test for:
-	# foo top_behavior top_store
-	def test_should_run_top_entity_through_rest
-			@server.load :host, {}, "../../scripts/test/rest/top_entity.rb"
-			sleep 0.5
-			@server.start
-			sleep 0.5
-			code, response = @server.post @host, '/rest/test'
-  		assert_equal 200, code, "Got unexpected response: '#{response}'"
-  end
+  # repeat this test for:
+  # top_behavior top_store
+  
+  def test_should_run_top_entity_through_rest
+      @server.load :host, {}, "scripts/test/rest/top_entity.rb"
+      sleep 0.5
+      @server.start
+      sleep 0.5
+      
+      # assert_equal "", @server.environments#.sandbox.entities
+      
+      code, response = @server.post @host, '/rest/test'
+      assert_equal 200, code, "Got unexpected response: '#{response}'"
+    end
+  
+  # def test_should_run_foo_through_rest
+  #   @server.load :host, {:mode => "fifo"}, "scripts/test/rest/foo.rb"
+  #   sleep 0.5
+  #   @server.start
+  #   sleep 0.5
+  # 
+  #   # assert_equal "", @host.env#.sandbox.entities
+  #   code, response = @server.post @host, '/rest/test'
+  # 
+  #   assert_equal 200, code, "Got unexpected response: '#{response}'"
+  # end
+  
 end

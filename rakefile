@@ -1,6 +1,6 @@
 require 'rake'
 
-task :default => [:rdoc, :test]
+task :default => [:rcov, :rdoc]
 
 
 # require 'spec/rake/spectask'
@@ -34,4 +34,15 @@ Rcov::RcovTask.new do |t|
   t.test_files = FileList['test/*.rb']
   t.output_dir = 'coverage'
   t.verbose = true
+end
+
+desc "Clean build directories"
+task :clean do
+  File::delete 'out' if File::exist? 'out'
+  
+  File::delete 'test/out' if File::exist? 'test/out'
+  File::delete 'test/temp' if File::exist? 'test/temp'
+  `rm -rf coverage`
+  `rm -rf html`
+  
 end

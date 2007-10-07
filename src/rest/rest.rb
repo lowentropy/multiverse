@@ -30,11 +30,14 @@ end
 
 # RESTful service patterns
 module REST
+  
+  def public
+    @visibility = :public
+  end
 
-	%w(public private).each do |mode|
-		eval "@visibility = :#{mode}"
-	end
-
+  def private
+    @visibility = :private
+  end
 
 	class RestError < RuntimeError
 		attr_reader :code, :body

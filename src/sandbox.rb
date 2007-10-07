@@ -30,6 +30,8 @@ class Sandbox
 
 	include Untrace
 
+  attr_reader :_delegates
+  
 	def initialize
 		@_delegates = {}
 		@_root_delegate = nil

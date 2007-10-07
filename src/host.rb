@@ -44,6 +44,9 @@ class Host
 
 	attr_reader :info
 
+	##REMOVE ME
+	attr_reader :env
+
 	def initialize(env, info)
 		@env, @info = env, info
 	end

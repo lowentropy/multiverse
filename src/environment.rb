@@ -587,18 +587,33 @@ class Environment
 	def pass
 		Thread.pass
 	end
-
-	%w(get put post delete).each do |method|
-		define_method method do |url,body,params|
-			uri = URI.parse url
-			host = "#{uri.host}:#{uri.port}".to_host
-			result, status = [], []
-			@outbox << [method.to_sym, host, uri.path, params.merge({:body => body}), result, status]
-			Thread.pass while result.empty?
-			reply = result[0]
-			[reply[:code], reply[:body]]
-		end
-	end
+  
+  # command request helpers
+  def get(url, body, params)
+    handle_request :get, url, body, params
+  end
+  
+  def put(url, body, params)
+    handle_request :put, url, body, params
+  end
+  
+  def post(url, body, params)
+    handle_request :post, url, body, params
+  end
+  
+  def delete(url, body, params)
+    handle_request :delete, url, body, params
+  end
+    
+  def handle_request (verb, url, body, params)
+    uri = URI.parse url
+    host = "#{uri.host}:#{uri.port}".to_host
+    result, status = [], []
+    @outbox << [verb, host, uri.path, params.merge({:body => body}), result, status]
+    Thread.pass while result.empty?
+    reply = result[0]
+    [reply[:code], reply[:body]]
+  end
 
 	# reply to a GET or POST
 	def reply(params = {})

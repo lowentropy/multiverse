@@ -7,6 +7,10 @@ require 'behavior'
 module REST
 
 	class EntityAdapter < Adapter
+	  attr_reader :uri
+	  def env
+	    $env
+    end
 		def get
 			code, body = $env.get @uri.to_s, '', {}
 			raise RestError.new(code, body) if code != 200
@@ -85,7 +89,8 @@ module REST
 		# routers
 		def route(parent, instance, path, index)
 			%w(entity store behavior).each do |pattern|
-				return true if send("route_to_#{pattern}", parent, instance(parent, path), path, index)
+        collection = instance_variable_get "@#{pattern.pluralize}"
+				return true if route_to_pattern(collection, parent, instance(parent, path), path, index)
 			end
 			false
 		end
@@ -104,20 +109,16 @@ module REST
 		end
 
 		# TODO: other definers
-
-		# sub-patterns
-		%w(entity store behavior).each do |pattern|
-			define_method "route_to_#{pattern}" do |parent,instance,path,index|
-				collection = instance_variable_get "@#{pattern.pluralize}"
-				collection.each do |sub|
-					vis, klass = *sub
-					if klass.regex =~ path[index]
-						assert_visibility vis
-						return klass.handle(instance, klass.instance(instance, path), path, index+1)
-					end
+    
+		def route_to_pattern(collection, parent, instance, path, index)
+			collection.each do |sub|
+				visability, klass = *sub
+				if klass.regex =~ path[index]
+					assert_visibility visability
+					return klass.handle(instance, klass.instance(instance, path), path, index+1)
 				end
-				false
 			end
+			false
 		end
 
 	end

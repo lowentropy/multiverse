@@ -45,28 +45,6 @@ class Server < Mongrel::HttpHandler
 		@localhost = Host.new(nil, ['localhost', config['port']])
 	end
 
-	# get next available script port
-	def next_port
-		@env_port += 1
-	end
-
-	# hook an in-memory environment into this server
-	def attach(env, name=config['default_env'].to_sym)
-		env_in, host_out = IO.pipe
-		host_in, env_out = IO.pipe
-		env.set_io env_in, env_out
-		pipe = MessagePipe.new host_in, host_out
-		add_env name, env, pipe
-		start_pipe_thread name, pipe
-	end
-
-	# add an environment and its pipe. name the env.
-	def add_env(name, env, pipe)
-		@pipes[name] = pipe
-		@environments[name] = env
-		env.name = name if env
-	end
-
 	# load a script into an environment. start the
 	# environment if it doesn't exist yet. this
 	# function will block until an error occurs or
@@ -87,47 +65,6 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
-	# create a new environment by some selected mode
-	def create(name=config['default_env'].to_sym, options={})
-		mode = options[:mode] || config['default_environment_mode']
-		send "create_#{mode}", name, options
-	end
-
-	# create an environment in a new process attached via socket
-	def create_net(name=config['default_env'].to_sym, options={})
-		IO.popen(script_command("--port #{@ports[name] ||= next_port}"))
-		sleep 0.5
-		create_io name, TCPSocket.new('127.0.0.1', @ports[name]), options
-	end
-
-	# create an environment that we load and talk to natively (fastest)
-	def create_mem(name=config['default_env'].to_sym, options={})
-		attach Environment.new, name
-	end
-
-	# get the command for running a script
-	def script_command(arguments="", options={})
-		path = File.dirname(__FILE__)
-		lang = options[:lang] || config['default_lang'].to_sym
-		command = case lang
-			when :ruby then "ruby #{path}/ruby-script.rb #{arguments}"
-			else raise "unknown script language #{lang}"
-		end
-	end
-
-	# create an environment in a new process attached via FIFO
-	def create_fifo(name=config['default_env'].to_sym, options={})
-		command = script_command "| tee out"
-		create_io name, IO.popen(command, 'w+'), options
-	end
-
-	# create a new environment attached to the given IO pipe
-	def create_io(name, io, options={})
-		pipe = MessagePipe.new io, io
-		add_env name, nil, pipe
-		start_pipe_thread name, pipe
-	end
-
 	# start the server
 	def start
 		@shutdown = false
@@ -139,13 +76,6 @@ class Server < Mongrel::HttpHandler
 			@log.fatal "interrupted: shutting down"
 			shutdown
 			join 0.5
-		end
-	end
-
-	# start a handler thread for the given message pipe
-	def start_pipe_thread(name, pipe)
-		@pipe_threads << Thread.new(self, name, pipe) do |server,name,pipe|
-			server.pipe_main name, pipe
 		end
 	end
 
@@ -193,6 +123,124 @@ class Server < Mongrel::HttpHandler
 		@log.debug "waiting for main thread..."
 		@thread.join timeout if @thread
 		@log.debug "main thread done."
+	end
+
+	# process HTTP request
+	def process(request, response)
+		debug 'server.process' do
+			begin
+				code, body = handle request
+			rescue Exception => e
+				@log.error e
+				code, body = 500, e.message
+			end
+			response.start(code) do |head,out|
+				out.write body
+			end
+		end
+	end
+
+  #command requests
+  
+  # %w(get put post delete).each do |command|
+  #   define_method command do |*params|
+  #     handle_request command.to_sym, *params
+  #   end
+  # end
+  def get(*params)
+    handle_request :get, *params
+  end
+  def put(*params)
+    handle_request :put, *params
+  end
+  def post(*params)
+    handle_request :post, *params
+  end
+  def delete(*params)
+    handle_request :delete, *params
+  end
+  def handle_request (verb, host, path, *rest)
+    debug "server.handle_command" do
+      body = rest.shift || ''
+      params = rest.shift || {}
+      req = eval "Net::HTTP::#{verb.to_s.capitalize}.new(path)"
+      req.body = body if req.request_body_permitted?
+      req.set_form_data(params)
+      res = Net::HTTP.start(*host.info) {|http| http.request req }
+      [res.code.to_i, res.body]
+    end
+  end
+
+  private
+
+	# get next available script port
+	def next_port
+		@env_port += 1
+	end
+
+	# add an environment and its pipe. name the env.
+	def add_env(name, env, pipe)
+		@pipes[name] = pipe
+		@environments[name] = env
+		env.name = name if env
+	end
+
+	# create a new environment by some selected mode
+	def create(name=config['default_env'].to_sym, options={})
+		mode = options[:mode] || config['default_environment_mode']
+		send "create_#{mode}", name, options
+	end
+
+	# create an environment in a new process attached via socket
+	def create_net(name=config['default_env'].to_sym, options={})
+		IO.popen(script_command("--port #{@ports[name] ||= next_port}"))
+		sleep 0.5
+		create_io name, TCPSocket.new('127.0.0.1', @ports[name]), options
+	end
+
+	# create an environment that we load and talk to natively (fastest)
+	def create_mem(name=config['default_env'].to_sym, options={})
+		attach Environment.new, name
+	end
+
+	# hook an in-memory environment into this server
+	def attach(env, name=config['default_env'].to_sym)
+		env_in, host_out = IO.pipe
+		host_in, env_out = IO.pipe
+		env.set_io env_in, env_out
+		pipe = MessagePipe.new host_in, host_out
+		add_env name, env, pipe
+		start_pipe_thread name, pipe
+	end
+
+	# get the command for running a script
+	def script_command(arguments="", options={})
+		path = File.dirname(__FILE__)
+		lang = options[:lang] || config['default_lang'].to_sym
+		command = case lang
+			when :ruby then "ruby #{path}/ruby-script.rb #{arguments}"
+			else raise "unknown script language #{lang}"
+		end
+	end
+
+	# create an environment in a new process attached via FIFO
+	def create_fifo(name=config['default_env'].to_sym, options={})
+		command = script_command "| tee out"
+		create_io name, IO.popen(command, 'w+'), options
+	end
+
+	# create a new environment attached to the given IO pipe
+	def create_io(name, io, options={})
+		pipe = MessagePipe.new io, io
+		add_env name, nil, pipe
+		start_pipe_thread name, pipe
+	end
+
+	# start a handler thread for the given message pipe
+	def start_pipe_thread(name, pipe)
+		@pipe_threads << Thread.new(self, name, pipe) do |server,name,pipe|
+			server.pipe_main name, pipe
+		end
 	end
 
 	# handle a message from the pipe
@@ -265,21 +313,6 @@ class Server < Mongrel::HttpHandler
 	# log message from the environment
 	def env_log(name, msg, level=:info)
 		@log.send level.to_s, "#{name}: #{msg}"
-	end
-
-	# process HTTP request
-	def process(request, response)
-		debug 'server.process' do
-			begin
-				code, body = handle request
-			rescue Exception => e
-				@log.error e
-				code, body = 500, e.message
-			end
-			response.start(code) do |head,out|
-				out.write body
-			end
-		end
 	end
 
 	# send a message through a local pipe
@@ -355,7 +388,7 @@ class Server < Mongrel::HttpHandler
 			:body		=> request.body, # FIXME: ???
 			:params	=> request_params(request) }
 	end
-
+	
 	# find the handler for the given url
 	def handler_for(url)
 		@maps.each do |source,value|
@@ -363,21 +396,6 @@ class Server < Mongrel::HttpHandler
 			return [value[0], value[1]] if regex =~ url.path
 		end
 		[nil, nil]
-	end
-
-	# command requests
-	%w(get put post delete).each do |command|
-		define_method command do |host,path,*rest|
-			debug "server.#{command}" do
-				body = rest.shift || ''
-				params = rest.shift || {}
-				req = eval "Net::HTTP::#{command.capitalize}.new(path)"
-				req.body = body if req.request_body_permitted?
-				req.set_form_data(params)
-				res = Net::HTTP.start(*host.info) {|http| http.request req }
-				[res.code.to_i, res.body]
-			end
-		end
 	end
 
 end
