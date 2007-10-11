@@ -64,6 +64,13 @@ class String
 			nil
 		end
 	end
+	def pluralize
+		if self[-1,1] == 'y'
+			self[0...-1] + 'ies'
+		else
+			self + 's'
+		end
+	end
 end
 
 class Regex

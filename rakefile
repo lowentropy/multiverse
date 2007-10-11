@@ -1,4 +1,6 @@
 require 'rake'
+require 'rubygems'
+require 'rcov'
 
 task :default => [:rcov, :rdoc]
 
@@ -27,14 +29,12 @@ Rake::TestTask.new do |t|
   t.verbose = true
 end
 
-require 'rubygems'
-require 'rcov'
 require 'rcov/rcovtask'
 desc 'Check test coverage'
 Rcov::RcovTask.new do |t|
   t.libs << "src"
   t.test_files = FileList['test/*.rb']
-  t.output_dir = 'coverage'
+  t.output_dir = 'doc/coverage'
   t.verbose = true
 end
 
@@ -45,5 +45,4 @@ task :clean do
   File::delete 'test/temp' if File::exist? 'test/temp'
   `rm -rf coverage`
   `rm -rf html`
-  
 end

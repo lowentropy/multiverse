@@ -67,7 +67,9 @@ module REST
 		@entities ||= []
 		@stores ||= []
 		@behaviors ||= []
-		(@entities + @stores + @behaviors).each do |pattern|
+		(@entities + @stores + @behaviors).each do |mapping|
+			# FIXME: make visibility a property of the pattern
+			vis, pattern = mapping
 			pattern.map
 		end
 	end

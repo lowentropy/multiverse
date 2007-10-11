@@ -4,17 +4,33 @@ module REST
 
   module PatternInstance
     attr_reader :uri
+		def path
+			$path
+		end
+		def params
+			$env.params
+		end
+		def body
+			$body
+		end
     def redirect
       $env.reply :code => 302, :body => uri
     end
+		def attributes
+			@pattern.instance_variable_get :@attributes
+		end
+		# XXX i'm not sure if this is recommended... just for debugging...
+		def reply(*args)
+			$env.reply *args
+		end
     def render
       @map = {}
-      @attributes.each do |attr|
+      attributes.each do |attr|
         @map[attr] = send attr
       end
       # TODO: render @map with requested media type or extension
-      # for now, rendering as yaml
-      $env.reply :code => 200, :body => @map.to_yaml
+      # for now, rendering as yaml FIXME incorrect yaml: no obj type/name?
+			@map.to_yaml
     end
     def parse(path)
       m = @regex.match path
@@ -22,6 +38,14 @@ module REST
         eval "@#{part} = m[i+1]"
       end
     end
+		def to_s
+			"#<#{@pattern.type}:#{@uri}>"
+		end
+		alias :inspect :to_s
+		def assert_visibility(visibility)
+			# TODO
+		end
+
   end
 
   # pattern root class
@@ -33,16 +57,29 @@ module REST
       @regex = regex
       @visibility = :public
       @actions = actions
+			@attributes = []
     end
 
     def map
-      $env.handle @regex do
-        self.handle nil, instance, $path.split('/'), 0
+			$env.dbg "mapping REST handler #{@regex.source} to #{self}"
+      $env.listen @regex, self do
+				$env.dbg "in rest listener, self = #{self}, path = #{$path}"
+				# FIXME: this here is damn ugly
+				parts = $path.split('/').reject {|p| p.empty?}
+        handler = self.handle nil, instance(nil,$path), parts[1..-1], 0
+				if handler
+					$method = $env.params.delete :method
+					$body = $env.params.delete :body
+					handler.send $method
+				else
+					$env.reply :code => 404, :body => $path
+				end
       end
     end
 
     def attributes(*attrs)
       attrs.each do |attribute|
+				@attributes << attribute
         @model.send :attr_accessor, attribute
         entity(attribute,nil) do
           get { @parent.send attribute }
@@ -65,6 +102,16 @@ module REST
     def instance(parent, path)
       set_parent_and_path(@instance, parent, path)
     end
+
+		def create_instance(block)
+			@model = Module.new
+			instance_eval &block
+			@instance = eval("@#{type}").new
+			@instance.instance_variable_set :@pattern, self
+			@instance.extend PatternInstance
+			@instance.extend eval("#{type.capitalize}Instance")
+			@instance.extend @model
+		end
 
     def set_parent_and_path(object, parent, path)
       object.instance_variable_set :@parent, parent
@@ -90,11 +137,13 @@ module REST
     end
 
     def handle(parent, instance, path, index)
-      if path[index]
+      val = if path[index]
         route parent, instance, path, index
       else
         instance
       end
+			$env.dbg "handler for #{instance} at #{path[index]} is #{val}"
+			val
     end
 
     def public

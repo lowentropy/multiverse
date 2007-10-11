@@ -67,8 +67,8 @@ class Environment
 		%w(	map current_state resource req
 				require k goto klass quit <<
 				state function fun reply pass err
-				private public params outbox log
-				entity behavior store handle
+				private public params outbox log dbg
+				entity behavior store handle listen
 				get put post delete).each do |cmd|
 			@sandbox.delegate cmd.to_sym, self
 		end
@@ -312,10 +312,13 @@ class Environment
 			# TODO: get source host in action message
 			when :action
 				# FIXME: we need to decide when path is a string vs. URI
+				dbg "received action request: #{message.url}"
 				path = message.url
 				path = path.path if path.kind_of? URI
 				action path, message.params
-			else @outbox << [:no_command, nil, nil, message.params]
+			else
+				params = message.params.merge({:command => message.command})
+				@outbox << [:no_command, nil, nil, params]
 			end
 		rescue Exception => e
 			err format_error(e), message[:message_id]
@@ -338,16 +341,17 @@ class Environment
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
 			$_params = params
+			$path = path
 			begin
 				# first look for a handler
-				block = resolve_handler path
-				dbg "resolved handler for #{path}"
+				block, obj = resolve_handler path
+				dbg "resolved (listen) handler for #{path}" if block
 				# otherwise look for an action
 				unless block
 					map_id, action = env.resolve_path path, params
-					dbg "resolved map for #{path}"
 					block = env.resolve_action map_id, action, params
-					dbg "found block for #{path}"
+					dbg "resolved (function) handler for #{path}"
+					obj = @sandbox
 				end
 			rescue Exception => e
 				reply :error => format_error(e)
@@ -357,7 +361,9 @@ class Environment
 				# TODO: set source host
 				begin
 					$env = env.instance_variable_get :@sandbox
-					env.sandbox &block
+					env.sandbox(:obj => obj) do
+						@obj.instance_exec &block
+					end
 				rescue Exception => e
 					reply :error => format_error(e)
 				end
@@ -439,6 +445,7 @@ class Environment
 		@pipe.write msg
 
 		begin
+			# FIXME: sync/async should be an arg of the message maybe?
 			if [:get, :post, :put, :delete].include? command
 				wait_for_reply_to msg, result, done
 			end
@@ -489,7 +496,7 @@ class Environment
 		protect :map_id, :protection_level do
 			@map_id = prefix.to_s
 			@protection_level = :public
-			@outbox << [:map, nil, prefix, {:regex => prefix.to_s}]
+			@outbox << [:map, nil, nil, {:regex => /#{prefix}/}]
 			sandbox &block
 		end
 	end
@@ -550,12 +557,16 @@ class Environment
 	# declare a url map that is also a function,
 	# which is the same as a map block containing
 	# a function which handles all requests
-	def listen(regex, &block)
-		@handlers[regex] = block
+	def listen(regex, object=@sandbox, &block)
+		raise "you are missing the point" if @map_id
+		@handlers[regex] = [block, object]
+		# FIXME: we shouldn't need regex as the path, right?
+		@outbox << [:map, nil, regex, {:regex => regex}]
 	end
 
-	# delegates to REST
-	delegate "REST::", :entity, :behavior, :store, :map_rest
+	# XXX delegates to REST XXX including the module is enough.
+	#                           (altho it might be a security hole).
+	# delegate "REST::", :entity, :behavior, :store, :map_rest
 
 	# declare a new class in this state
 	def klass(name, parent=nil, &block)
@@ -632,10 +643,18 @@ class Environment
 
 	# reply to a GET or POST
 	def reply(params = {})
+		if $_params[:replied]
+			puts "----------"
+			puts caller[0,10]
+			puts "----------"
+			puts $_params[:replied][0,10]
+		end
+		raise "already replied!" if $_params[:replied]
+		$_params[:replied] = caller
 		params[:code] ||= 200 unless params[:error]
 		params[:message_id] = $_params[:message_id]
+		dbg "replying: #{params.inspect}"
 		@outbox << [:reply, nil, nil, params]
-		$_params[:replied] = true
 	end
 
 	# send a debug message

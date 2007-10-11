@@ -53,8 +53,8 @@ class Message
 			"#{obj.to_s.size}\n#{obj.to_s}"
 		end.join('') + "#{@params.size}\n" +
 		@params.map do |k,v|
-			"#{k.to_s}\n#{v.class.to_s}\n" +
-			"#{v.to_s.size}\n#{v.to_s}"
+			str = v.is_a?(Regexp) ? v.source : v.to_s
+			"#{k.to_s}\n#{v.class.to_s}\n#{str.size}\n#{str}"
 		end.join('')
 	end
 
@@ -76,6 +76,7 @@ class Message
 			when :Fixnum then str.to_i
 			when :Float then str.to_f
 			when :Symbol then str.to_sym
+			when :Regexp then /#{str}/
 			else str; end
 		end
 		Message.new command, host, url, params

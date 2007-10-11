@@ -82,7 +82,7 @@ end
 
 # Buffer is a mutex-synchronized subclass of Array.
 # Locks mutex on <<, [], []=, shift, push, pop, empty?, and clear.
-# XXX: test me
+# TODO: test me
 class Buffer < Array
 	def initialize(*args)
 		@mutex = Mutex.new

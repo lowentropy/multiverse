@@ -1,0 +1,1680 @@
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html lang='en' xml:lang='en' xmlns='http://www.w3.org/1999/xhtml'>
+      <head>
+        <title>C0 code coverage information</title>
+        <style type='text/css'>body { background-color: rgb(240, 240, 245); }</style>
+        <style type='text/css'>span.cross-ref-title {
+ font-size: 140%;
+}
+span.cross-ref a {
+ text-decoration: none;
+}
+span.cross-ref {
+ background-color:#f3f7fa;
+ border: 1px dashed #333;
+ margin: 1em;
+ padding: 0.5em;
+ overflow: hidden;
+}
+a.crossref-toggle {
+ text-decoration: none;
+}
+span.marked0 {
+ background-color: rgb(185, 210, 200);
+ display: block;
+}
+span.marked1 {
+ background-color: rgb(190, 215, 205);
+ display: block;
+}
+span.inferred0 {
+ background-color: rgb(175, 200, 200);
+ display: block;
+}
+span.inferred1 {
+ background-color: rgb(180, 205, 205);
+ display: block;
+}
+span.uncovered0 {
+ background-color: rgb(225, 110, 110);
+ display: block;
+}
+span.uncovered1 {
+ background-color: rgb(235, 120, 120);
+ display: block;
+}
+span.overview {
+ border-bottom: 8px solid black;
+}
+div.overview {
+ border-bottom: 8px solid black;
+}
+body {
+ font-family: verdana, arial, helvetica;
+}
+div.footer {
+ font-size: 68%;
+ margin-top: 1.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+ margin-bottom: 0.5em;
+}
+h5 {
+ margin-top: 0.5em;
+}
+.hidden {
+ display: none;
+}
+div.separator {
+ height: 10px;
+}
+/* Commented out for better readability, esp. on IE */
+/*
+table tr td, table tr th {
+ font-size: 68%;
+}
+td.value table tr td {
+ font-size: 11px;
+}
+*/
+table.percent_graph {
+ height: 12px;
+ border: #808080 1px solid;
+ empty-cells: show;
+}
+table.percent_graph td.covered {
+ height: 10px;
+ background: #00f000;
+}
+table.percent_graph td.uncovered {
+ height: 10px;
+ background: #e00000;
+}
+table.percent_graph td.NA {
+ height: 10px;
+ background: #eaeaea;
+}
+table.report {
+ border-collapse: collapse;
+ width: 100%;
+}
+table.report td.heading {
+ background: #dcecff;
+ border: #d0d0d0 1px solid;
+ font-weight: bold;
+ text-align: center;
+}
+table.report td.heading:hover {
+ background: #c0ffc0;
+}
+table.report td.text {
+ border: #d0d0d0 1px solid;
+}
+table.report td.value,
+table.report td.lines_total,
+table.report td.lines_code {
+ text-align: right;
+ border: #d0d0d0 1px solid;
+}
+table.report tr.light {
+ background-color: rgb(240, 240, 245);
+}
+table.report tr.dark {
+ background-color: rgb(230, 230, 235);
+}
+</style>
+        <script type='text/javascript'>
+// <![CDATA[
+  function toggleCode( id ) {
+    if ( document.getElementById )
+      elem = document.getElementById( id );
+    else if ( document.all )
+      elem = eval( "document.all." + id );
+    else
+      return false;
+
+    elemStyle = elem.style;
+    
+    if ( elemStyle.display != "block" ) {
+      elemStyle.display = "block"
+    } else {
+      elemStyle.display = "none"
+    }
+
+    return true;
+  }
+  
+  // Make cross-references hidden by default
+  document.writeln( "<style type=\"text/css\">span.cross-ref { display: none }</style>" )
+  // ]]>
+</script>
+      </head>
+      <body>
+        <h3>C0 code coverage information</h3>
+        <p>Generated on Thu Oct 11 01:02:18 -0500 2007 with <a href='http://eigenclass.org/hiki.rb?rcov'>rcov 0.8.0</a>
+        </p>
+        <hr />    <table class='report'>
+      <thead>
+        <tr>
+          <td class='heading'>Name</td>
+          <td class='heading'>Total lines</td>
+          <td class='heading'>Lines of code</td>
+          <td class='heading'>Total coverage</td>
+          <td class='heading'>Code coverage</td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class='light'>
+          <td>TOTAL</td>
+          <td class='lines_total'>
+            <tt>3530</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>2475</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>76.7%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='77' />
+                      <td class='uncovered' width='23' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>68.4%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='68' />
+                      <td class='uncovered' width='32' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>17</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>9</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-base_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/base.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>74</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>46</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>79.7%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='80' />
+                      <td class='uncovered' width='20' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>67.4%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='67' />
+                      <td class='uncovered' width='33' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-config_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/config.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>9</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>6</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-formatter-formatter_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/formatter/formatter.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>105</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>49</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>89.5%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='90' />
+                      <td class='uncovered' width='10' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>77.6%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='78' />
+                      <td class='uncovered' width='22' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-formatter-patternformatter_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/formatter/patternformatter.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>108</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>52</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>64.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='65' />
+                      <td class='uncovered' width='35' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>34.6%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='35' />
+                      <td class='uncovered' width='65' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-logevent_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/logevent.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>28</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>9</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-logger_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/logger.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>194</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>116</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>80.4%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='80' />
+                      <td class='uncovered' width='20' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>68.1%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='68' />
+                      <td class='uncovered' width='32' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-loggerfactory_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/loggerfactory.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>89</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>67</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>97.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='98' />
+                      <td class='uncovered' width='2' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>97.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='97' />
+                      <td class='uncovered' width='3' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-outputter-consoleoutputters_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/outputter/consoleoutputters.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>18</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>13</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>77.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='78' />
+                      <td class='uncovered' width='22' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>69.2%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='69' />
+                      <td class='uncovered' width='31' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-outputter-fileoutputter_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/outputter/fileoutputter.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>49</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>32</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>32.7%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='33' />
+                      <td class='uncovered' width='67' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>18.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='19' />
+                      <td class='uncovered' width='81' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-outputter-iooutputter_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/outputter/iooutputter.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>55</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>34</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>70.9%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='71' />
+                      <td class='uncovered' width='29' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>52.9%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='53' />
+                      <td class='uncovered' width='47' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-outputter-outputter_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/outputter/outputter.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>132</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>72</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>78.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='79' />
+                      <td class='uncovered' width='21' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>61.1%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='61' />
+                      <td class='uncovered' width='39' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-outputter-outputterfactory_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/outputter/outputterfactory.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>59</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>44</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>88.1%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='88' />
+                      <td class='uncovered' width='12' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>84.1%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='84' />
+                      <td class='uncovered' width='16' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-outputter-rollingfileoutputter_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/outputter/rollingfileoutputter.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>126</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>87</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>30.2%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='30' />
+                      <td class='uncovered' width='70' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>13.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='14' />
+                      <td class='uncovered' width='86' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-outputter-staticoutputter_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/outputter/staticoutputter.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>30</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>25</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>43.3%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='43' />
+                      <td class='uncovered' width='57' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>32.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='32' />
+                      <td class='uncovered' width='68' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-repository_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/repository.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>65</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>40</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>70.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='71' />
+                      <td class='uncovered' width='29' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>57.5%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='57' />
+                      <td class='uncovered' width='43' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='-var-lib-gems-1_8-gems-log4r-1_0_5-src-log4r-staticlogger_rb.html'>/var/lib/gems/1.8/gems/log4r-1.0.5/src/log4r/staticlogger.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>49</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>30</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>67.3%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='67' />
+                      <td class='uncovered' width='33' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>46.7%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='47' />
+                      <td class='uncovered' width='53' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-config_rb.html'>src/config.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>105</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>84</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>93.3%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='93' />
+                      <td class='uncovered' width='7' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>91.7%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='92' />
+                      <td class='uncovered' width='8' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='src-debug_rb.html'>src/debug.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>38</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>32</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>78.9%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='79' />
+                      <td class='uncovered' width='21' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>78.1%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='78' />
+                      <td class='uncovered' width='22' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-delegator_rb.html'>src/delegator.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>16</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>13</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>18.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='19' />
+                      <td class='uncovered' width='81' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>15.4%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='15' />
+                      <td class='uncovered' width='85' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='src-environment_rb.html'>src/environment.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>694</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>527</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>83.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='83' />
+                      <td class='uncovered' width='17' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>77.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='78' />
+                      <td class='uncovered' width='22' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-ext_rb.html'>src/ext.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>90</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>72</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>70.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='70' />
+                      <td class='uncovered' width='30' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>62.5%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='63' />
+                      <td class='uncovered' width='37' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='src-host_rb.html'>src/host.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>95</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>58</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>68.4%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='68' />
+                      <td class='uncovered' width='32' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>48.3%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='48' />
+                      <td class='uncovered' width='52' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-message_rb.html'>src/message.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>96</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>79</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>95.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='96' />
+                      <td class='uncovered' width='4' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>94.9%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='95' />
+                      <td class='uncovered' width='5' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='src-pipe_rb.html'>src/pipe.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>124</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>84</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>96.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='97' />
+                      <td class='uncovered' width='3' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>95.2%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='95' />
+                      <td class='uncovered' width='5' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-rest-behavior_rb.html'>src/rest/behavior.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>36</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>23</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>63.9%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='64' />
+                      <td class='uncovered' width='36' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>47.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='48' />
+                      <td class='uncovered' width='52' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='src-rest-entity_rb.html'>src/rest/entity.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>152</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>112</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>63.2%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='63' />
+                      <td class='uncovered' width='37' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>52.7%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='53' />
+                      <td class='uncovered' width='47' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-rest-pattern_rb.html'>src/rest/pattern.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>158</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>134</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>47.5%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='47' />
+                      <td class='uncovered' width='53' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>41.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='41' />
+                      <td class='uncovered' width='59' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='src-rest-rest_rb.html'>src/rest/rest.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>77</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>57</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>79.2%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='79' />
+                      <td class='uncovered' width='21' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>71.9%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='72' />
+                      <td class='uncovered' width='28' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-rest-store_rb.html'>src/rest/store.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>99</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>77</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>47.5%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='47' />
+                      <td class='uncovered' width='53' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>33.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='34' />
+                      <td class='uncovered' width='66' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='src-sandbox_rb.html'>src/sandbox.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>83</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>46</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>92.8%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='93' />
+                      <td class='uncovered' width='7' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>87.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='87' />
+                      <td class='uncovered' width='13' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-server_rb.html'>src/server.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>426</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>322</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>87.1%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='87' />
+                      <td class='uncovered' width='13' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>83.2%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='83' />
+                      <td class='uncovered' width='17' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='dark'>
+          <td>
+            <a href='src-uid_rb.html'>src/uid.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>15</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>9</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr class='light'>
+          <td>
+            <a href='src-untrace_rb.html'>src/untrace.rb</a>
+          </td>
+          <td class='lines_total'>
+            <tt>19</tt>
+          </td>
+          <td class='lines_code'>
+            <tt>15</tt>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_total'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td>
+            <table cellspacing='0' cellpadding='0' align='right'>
+              <tr>
+                <td>
+                  <tt class='coverage_code'>100.0%</tt>&nbsp;</td>
+                <td>
+                  <table cellspacing='0' class='percent_graph' cellpadding='0' width='100'>
+                    <tr>
+                      <td class='covered' width='100' />
+                      <td class='uncovered' width='0' />
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table><hr />    <p>Generated using the <a href='http://eigenclass.org/hiki.rb?rcov'>rcov code coverage analysis tool for Ruby</a> version 0.8.0.</p><p>
+          <a href='http://validator.w3.org/check/referer'>
+            <img src='http://www.w3.org/Icons/valid-xhtml11' height='31' alt='Valid XHTML 1.1!' width='88' />
+          </a>
+          <a href='http://jigsaw.w3.org/css-validator/check/referer'>
+            <img src='http://jigsaw.w3.org/css-validator/images/vcss' alt='Valid CSS!' style='border:0;width:88px;height:31px' />
+          </a>
+        </p>
+      </body>
+    </html>

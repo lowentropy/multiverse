@@ -29,28 +29,48 @@ module REST
 	module EntityInstance
 		extend PatternInstance
 
-		def show
-			self.class.instance_variable_get :@show
+		%w(show update delete).each do |method|
+			handler_name = "#{method}_handler"
+			private; define_method handler_name do
+				vis, block = @pattern.send handler_name
+				if block
+					assert_visibility vis
+					block
+				else
+					# TODO: security checks for defaults?
+					proc { default_get }
+				end
+			end
+		end
+
+		# default REST actions
+		def default_get
+			render
+		end
+
+		def default_put
+			# TODO
+		end
+
+		def default_delete
+			# TODO
 		end
 
 		# REST responders
-		def get(parent, path)
-			vis, block = @show
-			assert_visibility vis
-			run_handler :path => path, &block
+		def get
+			reply :body => show_handler.call
 		end
 
-		def put(parent, path, body, params)
-			vis, block = @update
-			assert_visibility vis
-			run_handler :path => path, :body => body, :params => params, &block
+		def put
+			update_handler.call
+			get # XXX ???
 		end
 
-		def delete(parent, path)
-			vis, block = @delete
-			assert_visibility vis
-			run_handler :path => path, &block
+		def delete
+			delete_handler.call
+			get # XXX ???
 		end
+
 	end
 
 	# a member of a store
@@ -65,12 +85,18 @@ module REST
 			@entities = []
 			@behaviors = []
 			@stores = []
-			@model = Module.new
-			@model.extend EntityInstance
-			@model.instance_variable_set :@entity, self
-			instance_eval &block
-			@instance = @entity.new # note: for singletons only
-			@instance.extend @model
+			create_instance(block)
+		end
+
+		%w(show update delete).each do |method|
+			define_method "#{method}_handler" do
+				eval "@#{method}"
+			end
+		end
+
+		# type of pattern we are
+		def type
+			'entity'
 		end
 
 		# sub-pattern declarations
@@ -90,9 +116,10 @@ module REST
 		def route(parent, instance, path, index)
 			%w(entity store behavior).each do |pattern|
         collection = instance_variable_get "@#{pattern.pluralize}"
-				return true if route_to_pattern(collection, parent, instance(parent, path), path, index)
+				handler = route_to_pattern(collection, parent, instance(parent, path), path, index)
+				return handler if handler
 			end
-			false
+			nil
 		end
 
 		# method definers
@@ -118,7 +145,7 @@ module REST
 					return klass.handle(instance, klass.instance(instance, path), path, index+1)
 				end
 			end
-			false
+			nil
 		end
 
 	end

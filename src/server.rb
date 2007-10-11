@@ -81,18 +81,39 @@ class Server < Mongrel::HttpHandler
 
 	# handle a pipe's IO until shutdown
 	def pipe_main(name, pipe)
-		until @shutdown
-			reply = debug "pipe.read" do
-				begin
-					handle_msg name, pipe.read
-				rescue IOError => e
-					next
-				end
+		begin
+			until @shutdown
+				next unless (msg = next_message(pipe))
+				start_handler name, pipe, msg
+				Thread.pass unless @shutdown
 			end
-			send_to_pipe pipe, reply if reply
-			Thread.pass unless @shutdown
+			pipe.close
+		rescue Exception => e
+			@log.fatal e
+			shutdown
+			join 0
 		end
-		pipe.close
+	end
+
+	# read the next message from the input stream
+	def next_message(pipe)
+		begin
+			pipe.read
+		rescue IOError => e
+			nil
+		end
+	end
+	
+	# start a handler thread for a received message
+	def start_handler(name, pipe, msg)
+		Thread.new(self,msg) do |srv,msg|
+			reply = begin
+				srv.send :handle_msg, name, msg
+			rescue Exception => e
+				Message.system(:reply, :error => e.message)
+			end
+			srv.send :send_to_pipe, pipe, reply if reply
+		end
 	end
 
 	# shut down the server
@@ -251,13 +272,15 @@ class Server < Mongrel::HttpHandler
 		# inline error responses
 		when :no_command, :no_path, :ambiguous_path
 			msg[:code] = 500
-			msg[:body] = "#{msg.command.replace(/_/,' ')}: #{msg[:path]}"
+			msg[:error] = "#{msg.command.to_s.gsub(/_/,' ')}: #{msg[:path]}"
+			@log.debug "#{msg[:error]} #{msg.params.inspect}"
 			@env_replies << msg
 
 		# 404 error response from environment
 		when :not_found
 			msg[:code] = 404
 			msg[:body] = "not found: #{msg[:path]}"
+			@log.debug "#{msg[:error]} #{msg.params.inspect}"
 			@env_replies << msg
 
 		# requests to other hosts are handled inline
@@ -299,7 +322,7 @@ class Server < Mongrel::HttpHandler
 	def map(name, regex, handler_id)
 		# FIXME: there should be scope restrictions for security
 		@maps[regex] = [name, handler_id]
-		@log.info "mapped #{regex} to #{name}, id = #{handler_id}"
+		@log.info "mapped #{regex.source} to #{name}, id = #{handler_id}"
 		Message.system(:mapped, :status => :ok)
 	end
 
@@ -346,23 +369,23 @@ class Server < Mongrel::HttpHandler
 
 	# handle request with given environment
 	def handle_with(request, env, handler_id)
-		@log.debug "finding handler"
 		info = request_info request
 		method, url = info[:method], info[:path]
 		params = request_params(request).merge({
 			:handler_id => handler_id,
 			:method => method})
 
-		@log.debug "contacting handler"
+		@log.debug "calling #{env}'s handler for #{url}"
 		msg = Message.new(:action, @localhost, url, params)
 		send_to_pipe @pipes[env], msg
 		reply = wait_for_reply_to msg
+		# FIXME: i don't like this inconsistency
 		if reply[:error]
-			[500, reply[:error]]
-		else
-			env_err env, reply[:body], :error if reply[:code] >= @min_error_code
-			[reply[:code], reply[:body]]
+			reply[:code] = 500
+			reply[:body] = reply[:error]
 		end
+		env_err env, reply[:body], :error if reply[:code] >= @min_error_code
+		[reply[:code], reply[:body]]
 	end
 
 	# wait for an environment to reply to a request
@@ -371,6 +394,7 @@ class Server < Mongrel::HttpHandler
 		until @shutdown
 			@env_replies.each do |reply|
 				if reply.id == msg.id
+					# XXX @log.error reply[:error] if reply[:error]
 					@env_replies.delete reply
 					return reply
 				end
@@ -390,9 +414,11 @@ class Server < Mongrel::HttpHandler
 	
 	# find the handler for the given url
 	def handler_for(url)
-		@maps.each do |source,value|
-			regex = eval "/#{source}/"
-			return [value[0], value[1]] if regex =~ url.path
+		@maps.each do |regex,value|
+			if regex =~ url.path
+				@log.debug "#{url} maps to #{value[0]} via #{regex}"
+				return [value[0], value[1]] 
+			end
 		end
 		[nil, nil]
 	end

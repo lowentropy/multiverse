@@ -22,16 +22,7 @@ module REST
 			@store = klass
 			@static = {}
 			@behaviors = []
-			@model = Module.new {}
-			@model.instance_variable_set :@store, self
-			@model.extend StoreInstance
-			instance_eval &block
-			create_instance
-		end
-
-		def create_instance
-			@instance = @store.new
-			@instance.extend @model
+			create_instance(block)
 		end
 
 		# sub-pattern declarations
