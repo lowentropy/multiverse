@@ -30,12 +30,12 @@ class ScriptTests < Test::Unit::TestCase
 		assert_equal 200, code, "Got unexpected response: '#{response}'"
 	end
 
-  def test_should_ping_successfully_in_fifo_mode
-    run_ping("fifo")
-  end
-  def test_should_ping_successfully_in_net_mode
-    run_ping("net")
-  end
+#  def test_should_ping_successfully_in_fifo_mode
+#    run_ping("fifo")
+#  end
+#  def test_should_ping_successfully_in_net_mode
+#    run_ping("net")
+#  end
   def test_should_ping_successfully_in_mem_mode
     run_ping("mem")
   end

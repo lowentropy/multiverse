@@ -19,9 +19,11 @@ class Environment
 	extend PartialDelegator
 
 	attr_accessor :name
+	attr_reader :local_set
 
-	# set stuff up, taint some of it
+	# set up all the variables and start the I/O threads
 	def initialize(input=$stdin, output=$stdout, in_memory=false)
+		create_localizers
 		@pipe = MessagePipe.new input, output unless in_memory
 		@included = []
 		@inbox = []
@@ -45,6 +47,22 @@ class Environment
 		start_io_threads
 		add_script_commands
 		add_script_variables
+	end
+
+	# create procs which are at $SAFE=0 than get and set
+	# any instance variables on the current thread that
+	# are of the form @_mv_XXX
+	def create_localizers
+		@local_set = proc do |args|
+			args.each do |name,value|
+				raise "naughty!" unless /[a-zA-Z_]+/ === name.to_s
+				Thread.instance_variable_set "@_mv_#{name}", value
+			end
+		end
+		@local_get = proc do |name|
+			raise "naughty!" unless /[a-zA-Z_]+/ === name.to_s
+			Thread.instance_variable_get "@_mv_#{name}"
+		end
 	end
 
 	# reset the input/output pipes
@@ -76,7 +94,7 @@ class Environment
 
 	# add script-accessible (unsafe) variables
 	def add_script_variables
-		%w(outbox classes functions required
+		%w(outbox classes functions required local_set
 		   states state io_thread).each do |var|
 			eval "@sandbox[:#{var}] = @#{var}"
 		end
@@ -110,8 +128,8 @@ class Environment
 					sandbox(:script => name, :text => text, :env => self) do
 						error = [].taint
 						Thread.new(@script, @text, error, self) do |script,text,error,box|
-							$SAFE = 0
 							$env = box
+							$SAFE = 0
 							begin
 								box.untraced(0,3) do
 									begin
@@ -337,12 +355,18 @@ class Environment
 		@replies.delete message
 	end
 
+	def call_handler(object, params, path, &block)
+		params[:request_uri] = path
+		params.taint
+		sandbox :obj => object, &block
+	end
+
 	# call an action on the environment
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
-			$_params = params
-			$path = path
 			begin
+				env.local_set.call :params => params
+				dbg "trying to find handler for #{path}"
 				# first look for a handler
 				block, obj = resolve_handler path
 				dbg "resolved (listen) handler for #{path}" if block
@@ -358,16 +382,16 @@ class Environment
 			end
 			if block
 				dbg "calling handler"
-				# TODO: set source host
+				# TODO: set source host as a param
 				begin
 					$env = env.instance_variable_get :@sandbox
-					env.sandbox(:obj => obj) do
+					env.call_handler(obj, params, path) do
 						@obj.instance_exec &block
 					end
+					reply unless params[:replied]
 				rescue Exception => e
-					reply :error => format_error(e)
+					reply :error => format_error(e) unless params[:replied]
 				end
-				reply unless $_params[:replied]
 			else
 				@outbox << [:not_found, nil, nil, params.merge({:path => path})]
 			end
@@ -558,15 +582,10 @@ class Environment
 	# which is the same as a map block containing
 	# a function which handles all requests
 	def listen(regex, object=@sandbox, &block)
-		raise "you are missing the point" if @map_id
+		raise "listeners cannot appear inside maps" if @map_id
 		@handlers[regex] = [block, object]
-		# FIXME: we shouldn't need regex as the path, right?
-		@outbox << [:map, nil, regex, {:regex => regex}]
+		@outbox << [:map, nil, nil, {:regex => regex}]
 	end
-
-	# XXX delegates to REST XXX including the module is enough.
-	#                           (altho it might be a security hole).
-	# delegate "REST::", :entity, :behavior, :store, :map_rest
 
 	# declare a new class in this state
 	def klass(name, parent=nil, &block)
@@ -599,7 +618,7 @@ class Environment
 
 	# get action parameters
 	def params
-		$_params
+		@local_get.call 'params'
 	end
 
 	# add something safely to outbox array
@@ -643,16 +662,16 @@ class Environment
 
 	# reply to a GET or POST
 	def reply(params = {})
-		if $_params[:replied]
+		if self.params[:replied]
 			puts "----------"
 			puts caller[0,10]
 			puts "----------"
-			puts $_params[:replied][0,10]
+			puts self.params[:replied][0,10]
 		end
-		raise "already replied!" if $_params[:replied]
-		$_params[:replied] = caller
+		raise "already replied!" if self.params[:replied]
+		self.params[:replied] = caller
 		params[:code] ||= 200 unless params[:error]
-		params[:message_id] = $_params[:message_id]
+		params[:message_id] = self.params[:message_id]
 		dbg "replying: #{params.inspect}"
 		@outbox << [:reply, nil, nil, params]
 	end
