@@ -4,12 +4,13 @@ require 'src/environment'
 class EnvironmentTests < Test::Unit::TestCase
 
 	def setup
-		in_buf, out_buf = Buffer.new, Buffer.new
+		@in_buf, @out_buf = Buffer.new, Buffer.new
 		# FIXME: this initialization sequence is STUPID.
 		@env = Environment.new nil, nil, true
-		@env.set_io out_buf, in_buf, 'MemoryPipe'
-		@pipe = MemoryPipe.new in_buf, out_buf
-		@env.add_script 'default', 'fun(:start) { }'
+		@env.set_io @out_buf, @in_buf, 'MemoryPipe'
+		@env.sandbox_check = false
+		@pipe = MemoryPipe.new @in_buf, @out_buf
+		@env.add_script 'default', 'fun(:start) { quit }'
 	end
 
 	def test_join
@@ -30,7 +31,6 @@ class EnvironmentTests < Test::Unit::TestCase
 	end
 
 	def test_pipe_out_external
-		$env = @env
 		@env.run!
 		"foo".to_host.put '/test', :param => 'value', :message_id => 0
 		@pipe.read # :started

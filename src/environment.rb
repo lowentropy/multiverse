@@ -18,7 +18,7 @@ class Environment
 	include Untrace
 	extend PartialDelegator
 
-	attr_accessor :name
+	attr_accessor :name, :sandbox_check
 	attr_reader :local_set
 
 	# set up all the variables and start the I/O threads
@@ -43,10 +43,22 @@ class Environment
 		@handlers = {}.taint
 		@in_memory = in_memory
 		@quit_sent = false
+		@superfatal = true
+		@sandbox_check = true
 		state(:global) {}
 		start_io_threads
 		add_script_commands
 		add_script_variables
+	end
+
+	# accessor for thread-local storage
+	def [](name)
+		@local_get.call name
+	end
+
+	# accessor for thread-local storage
+	def []=(name, value)
+		@local_set.call name => value
 	end
 
 	# create procs which are at $SAFE=0 than get and set
@@ -82,11 +94,11 @@ class Environment
 
 	# add script-accessible (unsafe) functions
 	def add_script_commands
-		%w(	map current_state resource req
-				require k goto klass quit <<
+		%w(	map current_state req <<
+				require k goto klass quit replied?
 				state function fun reply pass err
-				private public params outbox log dbg
-				entity behavior store handle listen
+				private public params log dbg
+				entity behavior store listen
 				get put post delete).each do |cmd|
 			@sandbox.delegate cmd.to_sym, self
 		end
@@ -95,7 +107,7 @@ class Environment
 	# add script-accessible (unsafe) variables
 	def add_script_variables
 		%w(outbox classes functions required local_set
-		   states state io_thread).each do |var|
+		   states state).each do |var|
 			eval "@sandbox[:#{var}] = @#{var}"
 		end
 	end
@@ -145,7 +157,10 @@ class Environment
 						end.join
 						# bubble real errors
 						unless (error = error[0]).nil?
-							raise error unless error.message == "require"
+							unless error.message == "require"
+								puts format_err($!) if @superfatal
+								fail error
+							end
 						end
 					end
 					# load required files
@@ -168,6 +183,15 @@ class Environment
 		return_value = untraced(2) { block.call *params }
 		backup.each {|arg,val| eval "@#{arg} = val"}
 		return_value
+	end
+
+	# ensure that the caller function was called
+	# from a sandbox. FIXME must be a better way to do this
+	def must_call_from_sandbox!
+		return unless @sandbox_check
+		unless /sandbox\.rb/ =~ caller[1]
+			raise "illegal env -> env call"
+		end
 	end
 
 	# synchronize on a mutex for the given name
@@ -364,6 +388,7 @@ class Environment
 	# call an action on the environment
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
+			$env = env.instance_variable_get :@sandbox
 			begin
 				env.local_set.call :params => params
 				dbg "trying to find handler for #{path}"
@@ -378,19 +403,20 @@ class Environment
 					obj = @sandbox
 				end
 			rescue Exception => e
-				reply :error => format_error(e)
+				puts format_error(e) if @superfatal
+				$env.reply :error => format_error(e)
 			end
 			if block
 				dbg "calling handler"
 				# TODO: set source host as a param
 				begin
-					$env = env.instance_variable_get :@sandbox
 					env.call_handler(obj, params, path) do
 						@obj.instance_exec &block
 					end
-					reply unless params[:replied]
+					$env.reply unless $env.replied?
 				rescue Exception => e
-					reply :error => format_error(e) unless params[:replied]
+					puts format_error(e) if @superfatal
+					$env.reply :error => format_error(e) unless $env.replied?
 				end
 			else
 				@outbox << [:not_found, nil, nil, params.merge({:path => path})]
@@ -455,6 +481,7 @@ class Environment
 	def format_error(error)
 		"#{error}\n" + (error.backtrace.map{|l| "\t#{l}"}).join("\n")
 	end
+	alias :format_err :format_error
 
 	# send outgoing message to host
 	def send_message(message)
@@ -529,13 +556,23 @@ class Environment
 	## SCRIPT FUNCTIONS ##
 	######################
 
+	# add something to the outbox
+	def <<(msg)
+		must_call_from_sandbox!
+		sync :outbox do
+			@outbox << msg
+		end
+	end
+
 	# the current state
 	def current_state
+		#must_call_from_sandbox!
 		@state[0]
 	end
 
 	# require another file (depth-first order)
 	def req(script)
+		must_call_from_sandbox!
 		unless @included.include? script
 			@required << script
 			raise "require"
@@ -544,22 +581,27 @@ class Environment
 
 	# map a host url pattern
 	def map(arg, &block)
+		must_call_from_sandbox!
 		@map_id ? map_pattern(arg, &block) : map_root(arg, &block)
 	end
 
+	# XXX klasses are DEAD
 	# look up a class
 	def k(name)
+		must_call_from_sandbox!
 		@classes[current_state][name] || @classes[:global][name]
 	end
 
 	# jump to another state
 	def goto(state)
+		#must_call_from_sandbox!
 		raise "invalid state" unless @states.include? state
 		@state[0] = state
 	end
 
 	# exit the state machine
 	def quit
+		must_call_from_sandbox!
 		@exit = true
 	end
 
@@ -567,6 +609,7 @@ class Environment
 	# if it's inside a map block, it will be used
 	# as a message handler
 	def function(name, &block)
+		must_call_from_sandbox!
 		if @map_id
 			log "mapping listener #{@map_id}/#{name}"
 			@listeners[@map_id] ||= {}.taint
@@ -582,19 +625,23 @@ class Environment
 	# which is the same as a map block containing
 	# a function which handles all requests
 	def listen(regex, object=@sandbox, &block)
+		must_call_from_sandbox!
 		raise "listeners cannot appear inside maps" if @map_id
 		@handlers[regex] = [block, object]
 		@outbox << [:map, nil, nil, {:regex => regex}]
 	end
 
+	# XXX klasses are DEAD
 	# declare a new class in this state
 	def klass(name, parent=nil, &block)
+		must_call_from_sandbox!
 		parent = k(parent) if parent
 		@classes[current_state][name] = Class.new parent, &block
 	end
 
 	# declare a new state (nested states not allowed)
 	def state(name, &block)
+		# must_call_from_sandbox!
 		global_required
 		@states << name unless @states.include? name
 		@functions[name] ||= {}.taint
@@ -609,48 +656,56 @@ class Environment
 	# hosts in an ACL, by default just the handling
 	# host
 	def private
+		must_call_from_sandbox!
 		@protection_level = :private
 	end
 
 	def public
+		must_call_from_sandbox!
 		@protection_level = :public
 	end
 
 	# get action parameters
 	def params
+		must_call_from_sandbox!
 		@local_get.call 'params'
 	end
 
-	# add something safely to outbox array
-	def <<(message)
-		sync :outbox do
-			@outbox << message
-		end
+	# get whether there has been a reply
+	def replied?
+		must_call_from_sandbox!
+		@local_get.call 'replied'
 	end
 
 	# thread pass
 	def pass
+		must_call_from_sandbox!
 		Thread.pass
 	end
   
   # command request helpers
   def get(url, body, params)
+		must_call_from_sandbox!
     handle_request :get, url, body, params
   end
   
   def put(url, body, params)
+		must_call_from_sandbox!
     handle_request :put, url, body, params
   end
   
   def post(url, body, params)
+		must_call_from_sandbox!
     handle_request :post, url, body, params
   end
   
   def delete(url, body, params)
+		must_call_from_sandbox!
     handle_request :delete, url, body, params
   end
     
   def handle_request (verb, url, body, params)
+		#must_call_from_sandbox!
     uri = URI.parse url
     host = "#{uri.host}:#{uri.port}".to_host
     result, status = [], []
@@ -662,37 +717,35 @@ class Environment
 
 	# reply to a GET or POST
 	def reply(params = {})
-		if self.params[:replied]
-			puts "----------"
-			puts caller[0,10]
-			puts "----------"
-			puts self.params[:replied][0,10]
-		end
-		raise "already replied!" if self.params[:replied]
-		self.params[:replied] = caller
-		params[:code] ||= 200 unless params[:error]
-		params[:message_id] = self.params[:message_id]
-		dbg "replying: #{params.inspect}"
+		must_call_from_sandbox!
+		raise "already replied!" if $env.replied?
+		params[:code] ||= 200 unless $env.params[:error]
+		params[:message_id] = $env.params[:message_id]
 		@outbox << [:reply, nil, nil, params]
 	end
 
 	# send a debug message
 	def dbg(msg)
+		#must_call_from_sandbox!
 		log msg, :level => :debug
 	end
 
 	# send a log message
 	def log(msg, options={})
+		#must_call_from_sandbox!
 		@outbox << [:log, nil, nil, options.merge({:message => msg})]
 	end
 
 	# send an error message
 	def err(msg, message_id=nil)
+		#must_call_from_sandbox!
+		puts "FATAL XXX: #{msg}" if @superfatal
 		@outbox << [:error, nil, nil, {:message => msg, :message_id => message_id}]
 	end
 
 	# try to call a script-defined function
 	def method_missing(id, *args, &block)
+		must_call_from_sandbox! # hehehe
 		untraced(5) do
 			name = id.id2name.to_sym
 			[current_state, :global].each do |state|

@@ -32,6 +32,7 @@ class UntraceTests < Test::Unit::TestCase
 	def test_env_untrace
 		begin
 			@env = Environment.new $stdin, $stdout, true
+			@env.sandbox_check = false
 			@env.add_script 'test', <<END
 fun :foo do	
 	raise "foo"
