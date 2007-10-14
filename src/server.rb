@@ -36,6 +36,7 @@ class Server < Mongrel::HttpHandler
 		config_options options
 		config_default(
 			'port' => 4000,
+			'wait_timeout' => 5.0,
 			'default_lang' => 'ruby',
 			'default_env' => 'host',
 			'default_environment_mode' => 'mem')
@@ -228,6 +229,7 @@ class Server < Mongrel::HttpHandler
 	def attach(env, name=config['default_env'].to_sym)
 		in_buf, out_buf = Buffer.new, Buffer.new
 		pipe = MemoryPipe.new in_buf, out_buf
+		pipe.debug = env.instance_variable_get :@superfatal
 		env.set_io out_buf, in_buf, 'MemoryPipe'
 		add_env name, env, pipe
 		start_pipe_thread name, pipe
@@ -388,20 +390,33 @@ class Server < Mongrel::HttpHandler
 		[reply[:code], reply[:body]]
 	end
 
+	# check if a request has taken too long
+	def timed_out?(time)
+		(Time.now - time) > config['wait_timeout']
+	end
+
 	# wait for an environment to reply to a request
 	# reply returned must respond to [:code] and [:body]
 	def wait_for_reply_to(msg)
-		until @shutdown
-			@env_replies.each do |reply|
-				if reply.id == msg.id
-					# XXX @log.error reply[:error] if reply[:error]
-					@env_replies.delete reply
-					return reply
+		begin
+			start_time = Time.now
+			until @shutdown or timed_out?(start_time)
+				@env_replies.each do |reply|
+					if reply.id == msg.id
+						@env_replies.delete reply
+						return reply
+					end
 				end
+				Thread.pass
 			end
-			Thread.pass
+		rescue Exception => e
+			return {:code => 500, :body => "unexpected error: #{e}"}
 		end
-		{:code => 500, :body => 'server shutdown before reply'}
+		if @shutdown
+			return {:code => 500, :body => "server shutdown before reply"}
+		else
+			return {:code => 500, :body => "timed out: #{msg}"}
+		end
 	end
 
 	# get method and url of request

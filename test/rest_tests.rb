@@ -53,9 +53,8 @@ class RestTests < Test::Unit::TestCase
       @server.start
       sleep 0.5
       
-      #code, response = @server.post @host, '/rest/test'
-			#puts "TEST: got code #{code}" # XXX
-      #assert_equal 200, code, "Got unexpected response: '#{response}'"
+      code, response = @server.post @host, '/rest/test'
+      assert_equal 200, code, "Got unexpected response: '#{response}'"
     end
   
   # def test_should_run_foo_through_rest

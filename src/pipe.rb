@@ -100,15 +100,25 @@ end
 
 # Message pipe in memory; doesn't use byte-based streams at all.
 class MemoryPipe < MessagePipe
-	attr_accessor :id
+	attr_accessor :id, :debug
 	def initialize(input, output)
 		super(input, output)
 		@closed = false
+		@debug = false
+	end
+	def dbg_read(msg)
+		return unless @debug
+		puts "READ #{msg.command}: #{msg.id}" if msg.respond_to? :command
+	end
+	def dbg_wrote(msg)
+		return unless @debug
+		puts "WROTE #{msg.command}: #{msg.id}" if msg.respond_to? :command
 	end
 	def read
 		raise IOError.new("eof") if @closed
 		Thread.pass while @in.empty?
 		msg = @in.shift
+		dbg_read msg
 		if msg == :eof
 			@closed = true
 			return nil
@@ -117,6 +127,7 @@ class MemoryPipe < MessagePipe
 	end
 	def write(object, flush=true)
 		@out << object
+		dbg_wrote(object)
 	end
 	def close
 		@out << :eof

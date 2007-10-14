@@ -13,6 +13,7 @@ require 'ext'
 
 # Script environment handles states, functions, classes,
 # messaging, url mapping, sandboxing, and security.
+# It is a sexy beast.
 class Environment
 
 	include Untrace
@@ -43,7 +44,7 @@ class Environment
 		@handlers = {}.taint
 		@in_memory = in_memory
 		@quit_sent = false
-		@superfatal = true
+		@superfatal = false
 		@sandbox_check = true
 		state(:global) {}
 		start_io_threads
@@ -68,12 +69,12 @@ class Environment
 		@local_set = proc do |args|
 			args.each do |name,value|
 				raise "naughty!" unless /[a-zA-Z_]+/ === name.to_s
-				Thread.instance_variable_set "@_mv_#{name}", value
+				Thread.current.instance_variable_set "@_mv_#{name}", value
 			end
 		end
 		@local_get = proc do |name|
 			raise "naughty!" unless /[a-zA-Z_]+/ === name.to_s
-			Thread.instance_variable_get "@_mv_#{name}"
+			Thread.current.instance_variable_get "@_mv_#{name}"
 		end
 	end
 
@@ -719,6 +720,7 @@ class Environment
 	def reply(params = {})
 		must_call_from_sandbox!
 		raise "already replied!" if $env.replied?
+		@local_set.call 'replied' => true
 		params[:code] ||= 200 unless $env.params[:error]
 		params[:message_id] = $env.params[:message_id]
 		@outbox << [:reply, nil, nil, params]
