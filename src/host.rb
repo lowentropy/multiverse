@@ -47,8 +47,15 @@ class Host
 	##REMOVE ME
 	attr_reader :env
 
+	# FIXME the info tuple is dumb
 	def initialize(env, info)
 		@env, @info = env, info
+	end
+
+	def ==(other)
+		(other != nil) &&
+		(other.is_a? self.class) &&
+		(@info == other.instance_variable_get(:@info))
 	end
 
 	def host

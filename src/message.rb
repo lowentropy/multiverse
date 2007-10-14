@@ -48,6 +48,15 @@ class Message
 		(@command == :reply) && (self[:message_id] == message[:message_id])
 	end
 
+	def ==(other)
+		(other != nil) &&
+		(other.is_a? self.class) &&
+		(@command == other.command) &&
+		(@host == other.host) &&
+		(@url == other.url) && 
+		(@params == other.params)
+	end
+
 	def marshal
 		[@command, @host, @url].map do |obj|
 			"#{obj.to_s.size}\n#{obj.to_s}"

@@ -5,13 +5,16 @@ module REST
   module PatternInstance
     attr_reader :uri
 		def path
-			$path
+			$env[:path]
 		end
 		def params
 			$env.params
 		end
 		def body
-			$body
+			$env[:body]
+		end
+		def method
+			$env[:method]
 		end
     def redirect
       $env.reply :code => 302, :body => uri
@@ -63,16 +66,18 @@ module REST
     def map
 			$env.dbg "mapping REST handler #{@regex.source} to #{self}"
       $env.listen @regex, self do
-				$env.dbg "in rest listener, self = #{self}, path = #{$path}"
-				# FIXME: this here is damn ugly
-				parts = $path.split('/').reject {|p| p.empty?}
-        handler = self.handle nil, instance(nil,$path), parts[1..-1], 0
+				$env.dbg "in rest listener, self = #{self}"
+				# FIXME: this here is damn ugly (and stupid)
+				$env[:path] = $env.params[:request_uri]
+				parts = $env[:path].split('/').reject {|p| p.empty?}
+        handler = self.handle nil,
+					instance(nil,$env[:path]), parts[1..-1], 0
 				if handler
-					$method = $env.params.delete :method
-					$body = $env.params.delete :body
-					handler.send $method
+					$env[:method] = $env.params.delete :method
+					$env[:body] = $env.params.delete :body
+					handler.send $env[:method]
 				else
-					$env.reply :code => 404, :body => $path
+					$env.reply :code => 404, :body => $env[:path]
 				end
       end
     end
@@ -130,7 +135,7 @@ module REST
 
     def run_handler(instance, *globals, &block)
       Thread.new(instance, block, globals) do |instance,block,globals|
-        globals.each {|name,value| eval "$#{name} = value"}
+        globals.each {|name,value| $env[name] = value}
         value = instance ? instance.instance_exec(&block) : block.call
         value.render if value && value.respond_to?(:render) # TODO: not for DELETE, others?
       end.join

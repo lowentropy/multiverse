@@ -6,6 +6,28 @@ require 'src/rest/rest'
 
 class RestTests < Test::Unit::TestCase
 	def setup
+		last_msg = nil
+		@trace = proc do |event,file,line,id,bind,klass|
+			begin
+				break unless /c-call/i =~ event.to_s
+				break unless /pass/i =~ id.to_s
+				break unless /server/i =~ file.to_s
+				break unless line == 402
+
+				msg = eval("msg", bind)
+				puts "(#{line}) waiting for reply to #{msg}" unless msg == last_msg
+				last_msg = msg
+
+				#if /c-call/ =~ event.to_s && /pass/i =~ id.to_s
+				#	printf "%8s %s:%-2d %10s %8s\n", event, file, line, id, klass
+				#end
+			rescue Exception => e
+				puts "bad news..."
+				puts e
+				puts e.backtrace
+			end
+		end
+		#set_trace_func @trace
 		begin
 			@server = Server.new :log => {:level => :fatal}, 'port' => 4000
 			@host = @server.localhost

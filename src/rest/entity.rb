@@ -63,12 +63,10 @@ module REST
 
 		def put
 			update_handler.call
-			get # XXX ???
 		end
 
 		def delete
 			delete_handler.call
-			get # XXX ???
 		end
 
 	end
