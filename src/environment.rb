@@ -64,6 +64,8 @@ class Environment
 		@local_set.call name => value
 	end
 
+	private
+
 	# create procs which are at $SAFE=0 than get and set
 	# any instance variables on the current thread that
 	# are of the form @_mv_XXX
@@ -87,13 +89,15 @@ class Environment
 		@pipe = type.constantize.new input, output
 	end
 
+	private
+
 	# start IO processing threads
 	def start_io_threads
 		@pipe_thread = Thread.new(self) do |env|
-			env.pipe_main
+			env.send :pipe_main
 		end
 		@io_thread = Thread.new(self) do |env|
-			env.io_main
+			env.send :io_main
 		end
 	end
 
@@ -127,12 +131,12 @@ class Environment
 		return_value
 	end
 
-	public
-
 	# load a script file
 	def load_script(name)
 		File.read name
 	end
+
+	public
 
 	# add a script to the environment.
 	# this method can't really get shorter or simpler, unfortunately.
@@ -183,6 +187,8 @@ class Environment
 		end
 	end
 
+	private
+
 	# make a stack of instance variables for nested calls
 	def protect(*args, &block)
 		backup = {}
@@ -223,7 +229,7 @@ class Environment
 		@outbox << [:started, nil, nil]
 		Thread.pass
 		@main_thread = Thread.new(self) do |env|
-			env.script_main
+			env.send :script_main
 		end
 	end
 
@@ -237,6 +243,8 @@ class Environment
 		start!
 		run
 	end
+
+	private
 
 	# main script loop
 	def script_main
@@ -301,6 +309,8 @@ class Environment
 	def shutdown?
 		@shutdown && @done
 	end
+
+	private
 
 	# pipe reader loop
 	def pipe_main
@@ -410,8 +420,8 @@ class Environment
 				dbg "resolved (listen) handler for #{path}" if block
 				# otherwise look for an action
 				unless block
-					map_id, action = env.resolve_path path, params
-					block = env.resolve_action map_id, action, params
+					map_id, action = env.send :resolve_path, path, params
+					block = env.send :resolve_action, map_id, action, params
 					dbg "resolved (function) handler for #{path}"
 					obj = @sandbox
 				end
@@ -423,7 +433,7 @@ class Environment
 				dbg "calling handler"
 				# TODO: set source host as a param
 				begin
-					env.call_handler(obj, params, path) do
+					env.send :call_handler, obj, params, path do
 						@obj.instance_exec &block
 					end
 					$env.reply unless $env.replied?
@@ -527,7 +537,7 @@ class Environment
 					sync :replies do
 						@replies.each do |reply|
 							next unless reply.replies_to? message
-							env.delete_reply reply
+							env.send :delete_reply, reply
 							result << reply
 							status << reply[:error] || :ok
 							found = true
@@ -561,6 +571,37 @@ class Environment
 			@outbox << [:map, nil, nil, {:regex => /#{prefix}/}]
 			sandbox &block
 		end
+	end
+
+	# handle a GET, PUT, POST, or DELETE request.
+  def handle_request (verb, url, body, params)
+    uri = URI.parse url
+    host = "#{uri.host}:#{uri.port}".to_host
+    result, status = [], []
+    @outbox << [verb, host, uri.path, params.merge({:body => body}), result, status]
+    Thread.pass while result.empty?
+    reply = result[0]
+    [reply[:code], reply[:body]]
+  end
+
+	# try to call a script-defined function
+	def method_missing(id, *args, &block)
+		must_call_from_sandbox! # hehehe
+		untraced(5) do
+			name = id.id2name.to_sym
+			[current_state, :global].each do |state|
+				next unless @functions[state].include? name
+				return sandbox do
+					begin
+						@functions[state][name].call *args, &block
+					rescue Exception => e
+						self.rename_backtrace e, name
+						fail e
+					end
+				end
+			end
+		end
+		super id, *args
 	end
 
 	######################
@@ -703,19 +744,6 @@ class Environment
     handle_request :delete, url, body, params
   end
 
-	# handle a GET, PUT, POST, or DELETE request. # FIXME move me
-  def handle_request (verb, url, body, params)
-    uri = URI.parse url
-    host = "#{uri.host}:#{uri.port}".to_host
-    result, status = [], []
-    @outbox << [verb, host, uri.path, params.merge({:body => body}), result, status]
-    Thread.pass while result.empty?
-    reply = result[0]
-    [reply[:code], reply[:body]]
-  end
-
-	public
-
 	# reply to a GET or POST
 	def reply(params = {})
 		must_call_from_sandbox!
@@ -728,41 +756,18 @@ class Environment
 
 	# send a debug message
 	def dbg(msg)
-		#must_call_from_sandbox!
 		log msg, :level => :debug
 	end
 
 	# send a log message
 	def log(msg, options={})
-		#must_call_from_sandbox!
 		@outbox << [:log, nil, nil, options.merge({:message => msg})]
 	end
 
 	# send an error message
 	def err(msg, message_id=nil)
-		#must_call_from_sandbox!
 		puts "FATAL XXX: #{msg}" if @superfatal
 		@outbox << [:error, nil, nil, {:message => msg, :message_id => message_id}]
-	end
-
-	# try to call a script-defined function
-	def method_missing(id, *args, &block)
-		must_call_from_sandbox! # hehehe
-		untraced(5) do
-			name = id.id2name.to_sym
-			[current_state, :global].each do |state|
-				next unless @functions[state].include? name
-				return sandbox do
-					begin
-						@functions[state][name].call *args, &block
-					rescue Exception => e
-						self.rename_backtrace e, name
-						fail e
-					end
-				end
-			end
-		end
-		super id, *args
 	end
 
 end
