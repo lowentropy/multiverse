@@ -438,6 +438,12 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# get method and url of request
+	# XXX TODO MAYDAY! must examine content type to determine: 
+	#   a) how to get the body (req body or body param).
+	#   b) where the params are (uri or req body).
+	# also, must revise creation of requests! (i'm thinking always
+	# use body-encoded params (when possible, not w/ get obviously)
+	# and always encode real body into body params)
 	def request_info(request)
 		{	:method	=> request.params['REQUEST_METHOD'].downcase.to_sym,
 			:path		=> URI.parse(request.params['REQUEST_PATH']),
