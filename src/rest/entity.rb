@@ -6,6 +6,8 @@ require 'behavior'
 
 module REST
 
+	# Stateless client-side interface to an entity.
+	# Sends requests over HTTP
 	class EntityAdapter < Adapter
 	  attr_reader :uri
 	  def env
@@ -26,6 +28,7 @@ module REST
 		end
 	end
 
+	# Server-side entity instance methods
 	module EntityInstance
 		extend PatternInstance
 
@@ -43,28 +46,32 @@ module REST
 			end
 		end
 
-		# default REST actions
+		# default REST action
 		def default_get
 			render
 		end
 
+		# default REST action
 		def default_put
 			# TODO
 		end
 
+		# default REST action
 		def default_delete
 			# TODO
 		end
 
-		# REST responders
+		# REST responder
 		def get
 			reply :body => show_handler.call
 		end
 
+		# REST responder
 		def put
 			update_handler.call
 		end
 
+		# REST responder
 		def delete
 			delete_handler.call
 		end
@@ -97,20 +104,22 @@ module REST
 			'entity'
 		end
 
-		# sub-pattern declarations
+		# sub-pattern declaration
 		def behavior(regex, &block)
 			@behaviors << [@visibility, Behavior.new(regex, &block)]
 		end
 
+		# sub-pattern declaration
 		def entity(regex, klass, &block)
 			@entities << [@visibility, Entity.new(klass, regex, &block)]
 		end
 
+		# sub-pattern declaration
 		def store(regex, klass, &block)
 			@stores << [@visibility, Store.new(klass, regex, &block)]
 		end
 
-		# routers
+		# route a message within our RESTful structure.
 		def route(parent, instance, path, index)
 			%w(entity store behavior).each do |pattern|
         collection = instance_variable_get "@#{pattern.pluralize}"
@@ -120,21 +129,24 @@ module REST
 			nil
 		end
 
-		# method definers
+		# method definer
 		def get(&block)
 			@show = block
 		end
 
+		# method definer
 		def update(&block)
 			@update = block
 		end
 
+		# method definer
 		def delete(&block)
 			@delete = block
 		end
 
-		# TODO: other definers
+		# TODO: other definers (???)
     
+		# helper to route messages to a sub-pattern
 		def route_to_pattern(collection, parent, instance, path, index)
 			collection.each do |sub|
 				visability, klass = *sub
@@ -143,7 +155,6 @@ module REST
 					return klass.handle(instance, klass.instance(instance, path), path, index+1)
 				end
 			end
-			nil
 		end
 
 	end

@@ -2,23 +2,31 @@ $: << File.expand_path(File.dirname(__FILE__))
 
 module REST
 
+	# Methods shared by all server-side REST pattern instances.
   module PatternInstance
     attr_reader :uri
+		# actual (request) path to instance
 		def path
 			$env[:path]
 		end
+		# parameters passed to instance in a call
 		def params
 			$env.params
 		end
+		# body of request passed to instance
 		def body
 			$env[:body]
 		end
+		# method of request to instance
 		def method
 			$env[:method]
 		end
+		# issue a 302 reply to own static path
     def redirect
       $env.reply :code => 302, :body => uri
     end
+		# get the builtin attributes of the pattern
+		# (XXX does this make sense for non-entities?)
 		def attributes
 			@pattern.instance_variable_get :@attributes
 		end
@@ -26,29 +34,31 @@ module REST
 		def reply(*args)
 			$env.reply *args
 		end
+		# TODO: render @map with requested media type or extension
+		# for now, rendering as yaml FIXME incorrect yaml? no obj type/name?
     def render
       @map = {}
       attributes.each do |attr|
         @map[attr] = send attr
       end
-      # TODO: render @map with requested media type or extension
-      # for now, rendering as yaml FIXME incorrect yaml: no obj type/name?
 			@map.to_yaml
     end
+		# parse a fixed path into the named parts of our defining regex
     def parse(path)
       m = @regex.match path
       @parts.map_with_index do |part,i|
         eval "@#{part} = m[i+1]"
       end
     end
+		# pretty-print a reference
 		def to_s
 			"#<#{@pattern.type}:#{@uri}>"
 		end
 		alias :inspect :to_s
+		# assert that the request is allowed for this resource
 		def assert_visibility(visibility)
 			# TODO
 		end
-
   end
 
   # pattern root class
@@ -63,6 +73,9 @@ module REST
 			@attributes = []
     end
 
+		# take the API definition and send messages to the environment, and
+		# thence to the server, that initialize routes for global requests to
+		# reach the pattern instance.
     def map
 			$env.dbg "mapping REST handler #{@regex.source} to #{self}"
       $env.listen @regex, self do
@@ -82,6 +95,8 @@ module REST
       end
     end
 
+		# define builtin attributes of the pattern
+		# (XXX does this make sense for non-entities?)
     def attributes(*attrs)
       attrs.each do |attribute|
 				@attributes << attribute
@@ -93,6 +108,8 @@ module REST
       end
     end
 
+		# declare named sections of the path to the resource,
+		# to be used as (non-queryable) attributes.
     def path(*parts)
       @parts = parts
       parts.each do |part|
@@ -104,10 +121,13 @@ module REST
       end
     end
 
+		# get an initialized reference to the instance of the
+		# pattern to be used to receive messages.
     def instance(parent, path)
       set_parent_and_path(@instance, parent, path)
     end
 
+		# create a new instance of this pattern (singleton)
 		def create_instance(block)
 			@model = Module.new
 			instance_eval &block
@@ -118,12 +138,14 @@ module REST
 			@instance.extend @model
 		end
 
+		# set @parent and @uri on the instance
     def set_parent_and_path(object, parent, path)
       object.instance_variable_set :@parent, parent
       object.instance_variable_set :@uri, path
       object
     end
 
+		# XXX what the hell is this?
     def method_missing(id, *args, &block)
       sym = id.id2name.to_sym
       if @actions.include? sym
@@ -133,6 +155,7 @@ module REST
       end
     end
 
+		# run a pattern instance's handler for the message
     def run_handler(instance, *globals, &block)
       Thread.new(instance, block, globals) do |instance,block,globals|
         globals.each {|name,value| $env[name] = value}
@@ -141,6 +164,8 @@ module REST
       end.join
     end
 
+		# handle a message by routing it until the target is found,
+		# then calling run_handler.
     def handle(parent, instance, path, index)
       val = if path[index]
         route parent, instance, path, index
@@ -151,10 +176,12 @@ module REST
 			val
     end
 
+		# set visibility
     def public
       @visibility = :public
     end
 
+		# set visibility
     def private
       @visibility = :private
     end

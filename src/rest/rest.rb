@@ -31,10 +31,12 @@ end
 # RESTful service patterns
 module REST
   
+	# set toplevel visibility
   def public
     @visibility = :public
   end
 
+	# set toplevel visibility
   def private
     @visibility = :private
   end

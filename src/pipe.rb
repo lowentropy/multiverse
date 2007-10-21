@@ -25,14 +25,19 @@ require 'thread'
 
 
 # Objects to be sent over pipe should have marshal
-# and unmarshal methods
+# methods. An unmarshal block should be passed to
+# the pipe constructor.
 class ObjectPipe
 
+	# attach the pipe to in/out streams, stdin/out by default
 	def initialize(input=$stdin, output=$stdout, &unmarshal)
 		@in, @out, @unmarshal = input, output, unmarshal
 		@read, @write = Mutex.new, Mutex.new
 	end
 
+	# read a message. blocks until an entire message
+	# can be read. raises errors on malformed streams.
+	# returns nil at EOF.
 	def read
 		return nil unless @in
 		begin
@@ -51,6 +56,7 @@ class ObjectPipe
 		end
 	end
 
+	# write an object to the pipe. by default, flush after.
 	def write(object, flush=true)
 		return unless @out and not @out.closed?
 		text = object.marshal
@@ -63,6 +69,7 @@ class ObjectPipe
 		end
 	end
 
+	# close the in/out streams
 	def close
 		@in.close unless @in.closed?
 		@out.close unless @out.closed?
@@ -70,7 +77,7 @@ class ObjectPipe
 end
 
 
-# Message pipe just passes static unmarshal method to constructor
+# Message pipe just passes static unmarshal method to constructor.
 class MessagePipe < ObjectPipe
 	def initialize(input=$stdin, output=$stdout)
 		super(input, output) do |text|
@@ -82,7 +89,7 @@ end
 
 # Buffer is a mutex-synchronized subclass of Array.
 # Locks mutex on <<, [], []=, shift, push, pop, empty?, and clear.
-# TODO: test me
+# TODO test me
 class Buffer < Array
 	def initialize(*args)
 		@mutex = Mutex.new
@@ -101,19 +108,26 @@ end
 # Message pipe in memory; doesn't use byte-based streams at all.
 class MemoryPipe < MessagePipe
 	attr_accessor :id, :debug
+	# input and output should be some type of buffer
 	def initialize(input, output)
 		super(input, output)
 		@closed = false
 		@debug = false
 	end
+	# if debugging is on, prints a message when it is received
 	def dbg_read(msg)
 		return unless @debug
 		puts "READ #{msg.command}: #{msg.id}" if msg.respond_to? :command
 	end
+	# if debugging is on, prints a message when it is sent
 	def dbg_wrote(msg)
 		return unless @debug
 		puts "WROTE #{msg.command}: #{msg.id}" if msg.respond_to? :command
 	end
+	# read a message from the input buffer. will block until a
+	# message is available. returns an eof exception if the pipe
+	# has been closed. on receiving the message :eof, will close
+	# and return nil.
 	def read
 		raise IOError.new("eof") if @closed
 		Thread.pass while @in.empty?
@@ -125,10 +139,12 @@ class MemoryPipe < MessagePipe
 		end
 		msg
 	end
+	# write a message to the pipe (note that flushing does nothing).
 	def write(object, flush=true)
 		@out << object
 		dbg_wrote(object)
 	end
+	# close the write end of the pipe by sending :eof
 	def close
 		@out << :eof
 	end

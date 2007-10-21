@@ -20,6 +20,7 @@ class Server < Mongrel::HttpHandler
 
 	attr_reader :localhost
 
+	# set up server state and load configuration.
 	def initialize(options={})
 		@pipes = {}
 		@maps = {}
@@ -66,7 +67,7 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
-	# start the server
+	# start the server; also trap user interrupts.
 	def start
 		@shutdown = false
 		@pipes.values.each {|pipe| send_to_pipe pipe, Message.system(:start)}
@@ -77,6 +78,73 @@ class Server < Mongrel::HttpHandler
 			@log.fatal "interrupted: shutting down"
 			shutdown
 			join 0.5
+		end
+	end
+
+	# shut down the server
+	def shutdown
+		@http.stop if @http
+		@environments.keys.each do |env|
+			next unless @pipes[env]
+			@log.debug "sending quit to #{env}"
+			send_to_pipe @pipes[env], Message.system(:quit, :timeout => 1)
+		end
+		@log.info "waiting for environments to complete"
+		while @environments.any?
+			@log.debug "remaining environments: #{@environments.keys.inspect}"
+			sleep 1
+		end
+		@log.info "all environments now complete"
+		@shutdown = true
+	end
+
+	# join w/ the server thread
+	def join(timeout=nil)
+		until @pipe_threads.empty?
+			@log.debug "waiting for pipe thread..."
+			thread = @pipe_threads.shift
+			thread.join timeout if thread
+			@log.debug "pipe thread done."
+		end
+		@log.debug "waiting for main thread..."
+		@thread.join timeout if @thread
+		@log.debug "main thread done."
+	end
+
+	# issue an external GET request
+  def get(*params)
+    handle_request :get, *params
+  end
+
+	# issue an external PUT request
+  def put(*params)
+    handle_request :put, *params
+  end
+
+	# issue an external POST request
+  def post(*params)
+    handle_request :post, *params
+  end
+
+	# issue an external DELETE request
+  def delete(*params)
+    handle_request :delete, *params
+  end
+
+	# process HTTP request.
+	# THIS MUST BE PUBLIC because it is called from Mongrel.
+	# TODO add a public wrapper that checks the caller
+	def process(request, response)
+		debug 'server.process' do
+			begin
+				code, body = handle request
+			rescue Exception => e
+				@log.error e
+				code, body = 500, e.message
+			end
+			response.start(code) do |head,out|
+				out.write body
+			end
 		end
 	end
 
@@ -117,70 +185,9 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
-	# shut down the server
-	def shutdown
-		@http.stop if @http
-		@environments.keys.each do |env|
-			next unless @pipes[env]
-			@log.debug "sending quit to #{env}"
-			send_to_pipe @pipes[env], Message.system(:quit, :timeout => 1)
-		end
-		@log.info "waiting for environments to complete"
-		while @environments.any?
-			@log.debug "remaining environments: #{@environments.keys.inspect}"
-			sleep 1
-		end
-		@log.info "all environments now complete"
-		@shutdown = true
-	end
 
-	# join w/ the server thread
-	def join(timeout=nil)
-		until @pipe_threads.empty?
-			@log.debug "waiting for pipe thread..."
-			thread = @pipe_threads.shift
-			thread.join timeout if thread
-			@log.debug "pipe thread done."
-		end
-		@log.debug "waiting for main thread..."
-		@thread.join timeout if @thread
-		@log.debug "main thread done."
-	end
-
-	# process HTTP request
-	def process(request, response)
-		debug 'server.process' do
-			begin
-				code, body = handle request
-			rescue Exception => e
-				@log.error e
-				code, body = 500, e.message
-			end
-			response.start(code) do |head,out|
-				out.write body
-			end
-		end
-	end
-
-  #command requests
-  
-  # %w(get put post delete).each do |command|
-  #   define_method command do |*params|
-  #     handle_request command.to_sym, *params
-  #   end
-  # end
-  def get(*params)
-    handle_request :get, *params
-  end
-  def put(*params)
-    handle_request :put, *params
-  end
-  def post(*params)
-    handle_request :post, *params
-  end
-  def delete(*params)
-    handle_request :delete, *params
-  end
+	# issue an HTTP request. this function will block until some
+	# respose is received. returns [code, body].
   def handle_request (verb, host, path, *rest)
     debug "server.handle_command" do
       body = rest.shift || ''
@@ -192,8 +199,6 @@ class Server < Mongrel::HttpHandler
       [res.code.to_i, res.body]
     end
   end
-
-  private
 
 	# get next available script port
 	def next_port

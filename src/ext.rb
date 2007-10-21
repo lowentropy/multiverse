@@ -1,8 +1,14 @@
+# Extensions to object to include instance_exec
 class Object
 
+	# Container module for dynamic instance_exec methods
   module InstanceExecHelper; end
   include InstanceExecHelper
 
+	# execute the given code in the context of this object.
+	# this allows you to pass arguments to the block.
+	# this works by dynamically creating methods on the
+	# helper module (which is included in the object).
   def instance_exec(*args, &block)
 		begin
 			old_c, Thread.critical = Thread.critical, true
@@ -18,9 +24,9 @@ class Object
 		end
 	end
 end
-#
+
 # This code is to prevent DOS attacks by hiding some
-# builtin methods of Ruby's Thread class:
+# builtin methods of Ruby's Thread class,
 # critical= and abort_on_exception=.
 class Thread
 	
@@ -51,12 +57,17 @@ class Thread
 	def self.abort_on_exception=(*args)
 		raise "somebody's trying to be naughty!"
 	end
+	
+	# don't allow any access to abort_on_exception=
 	def abort_on_exception=(*args)
 		raise "somebody's trying to be naughty!"
 	end
 end
 
+# Add basic extensions to String.
 class String
+	
+	# evaluate this string (i.e., treat it as a constant)
 	def constantize
 		begin
 			eval self
@@ -64,6 +75,8 @@ class String
 			nil
 		end
 	end
+
+	# find the plural of an english word
 	def pluralize
 		if self[-1,1] == 'y'
 			self[0...-1] + 'ies'
@@ -73,18 +86,18 @@ class String
 	end
 end
 
-class Regex
+
+# Adds UID helpers
+class Regexp
+
+	# the format of a UID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
 	def uid_format
 		h = '[0-9A-Fa-f]'
 		"#{h}{8}-#{h}{4}-#{h}{4}-#{h}{4}-#{h}{12}"
 	end
+
+	# replace instances of {uid} with the uid regex
 	def replace_uids
 		/#{source.gsub(/\{uid\}/,uid_format)}/
-	end
-end
-
-class Hash
-	def to_stream
-		inspect
 	end
 end

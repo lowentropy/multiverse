@@ -21,11 +21,16 @@
 $: << File.dirname(__FILE__)
 
 
+# simple host-from-string functionality
 class String
+
+	# return a host object
 	def to_host
 		host, port = split ':'
 		Host.new($env, [host, port || 4000])
 	end
+	
+	# return a host, port pair
 	def to_host_info
 		$stderr.puts "getting info for #{self.inspect}"
 		$stderr.flush
@@ -33,18 +38,19 @@ class String
 	end
 end
 
+# same as String#to_host
 class Symbol
 	def to_host
 		to_s.to_host
 	end
 end
 
-
+# a Host object is a pointer to some computer or iphone or whatever.
 class Host
 
 	attr_reader :info
 
-	##REMOVE ME
+	# TODO REMOVE ME
 	attr_reader :env
 
 	# FIXME the info tuple is dumb
@@ -66,6 +72,8 @@ class Host
 		@info[1]
 	end
 
+	# get a string corresponding to the given url on
+	# this host.
 	def [](path)
 		if path[0,1] == '/'
 			"http://#{info.join(':')}#{path}"
@@ -74,11 +82,15 @@ class Host
 		end
 	end
 
+	# issue a command on the script environment to send
+	# an HTTP PUT message.
 	def put(url, params={})
 		@env << [:put, self, url, params]
 		nil
 	end
 
+	# issue a command on the script environment to send
+	# an HTTP POST message.
 	def post(url, params={})
 		response = []
 		status = []
@@ -87,6 +99,8 @@ class Host
 		(status = status[0]) == :ok ? response[0].params : raise(status)
 	end
 
+	# issue a command on the script environment to send
+	# an HTTP GET message.
 	def get(url, params={})
 		response = []
 		status = []
@@ -95,6 +109,7 @@ class Host
 		(status = status[0]) == :ok ? response[0][:data] : raise(status)
 	end
 
+	# host:port
 	def to_s
 		info.join ':'
 	end

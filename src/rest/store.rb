@@ -7,6 +7,7 @@ require 'behavior'
 
 module REST
 
+	# functionality of server-side store instances
 	module StoreInstance
 		extend PatternInstance
 		# TODO
@@ -30,6 +31,7 @@ module REST
 			@behaviors << [@visibility, Behavior.new(regex, &block)]
 		end
 
+		# declare a dynamic or static entity inside this store
 		def entity(regex_or_name, klass, &block)
 			if regex.is_a? Regexp
 				raise "only one regex entity declaration allowed" if @entity
@@ -72,6 +74,8 @@ module REST
 			false
 		end
 
+		# look up a sub-pattern instance given a path by
+		# calling the api-supplied handler.
 		def find(path)
 			parts = @entity.parse path
 			vis, block = @find
@@ -79,13 +83,14 @@ module REST
 			instance.instance_exec *parts, &block
 		end
 
-		# REST responders
+		# REST responder
 		def get(path)
 			vis, block = @index
 			assert_visibility vis
 			run_handler :path => path, &block
 		end
 
+		# REST responder
 		def post(path, body, params)
 			entity = @entity.new path, body, params
 			vis, block = @add

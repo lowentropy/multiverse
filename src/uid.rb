@@ -1,3 +1,4 @@
+# A unique identifier of 128 bits.
 class UID
 
 	# generate a random 128-bit number
@@ -7,6 +8,8 @@ class UID
 	end
 
 	private
+
+	# get a random hex number
 	def self.rand_hex(n)
 		"%0#{n}X" % [rand(2 ** (n * 4))]
 	end

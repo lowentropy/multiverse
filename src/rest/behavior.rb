@@ -3,11 +3,12 @@ $: << File.expand_path(File.dirname(__FILE__))
 require 'rest'
 require 'pattern'
 
+# RESTful service API. See scripts/*.rb for examples
 module REST
 
 	class BehaviorInstance
 		include PatternInstance
-		# TODO
+		# TODO add behavior functions (like call, or describe?)
 	end
 
 	# a behavior is a named action taking a POST

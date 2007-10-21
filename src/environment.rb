@@ -2,7 +2,6 @@ $: << File.dirname(__FILE__)
 
 require 'thread'
 require 'sandbox'
-require 'delegator'
 require 'pipe'
 require 'host'
 require 'untrace'
@@ -14,10 +13,13 @@ require 'ext'
 # Script environment handles states, functions, classes,
 # messaging, url mapping, sandboxing, and security.
 # It is a sexy beast.
+#
+# TODO do refactoring as per comments
+# TODO group functions in some sane way
+# TODO export function sets to mixins
 class Environment
 
 	include Untrace
-	extend PartialDelegator
 
 	attr_accessor :name, :sandbox_check
 	attr_reader :local_set
@@ -78,6 +80,8 @@ class Environment
 		end
 	end
 
+	public
+
 	# reset the input/output pipes
 	def set_io(input, output, type='MessagePipe')
 		@pipe = type.constantize.new input, output
@@ -123,6 +127,8 @@ class Environment
 		return_value
 	end
 
+	public
+
 	# load a script file
 	def load_script(name)
 		File.read name
@@ -130,6 +136,7 @@ class Environment
 
 	# add a script to the environment.
 	# this method can't really get shorter or simpler, unfortunately.
+	# TODO: set SAFE=4 and see what happens.
 	def add_script(name, text=nil)
 		untraced(2) do
 			# push previous require (depth-first order)
@@ -204,6 +211,8 @@ class Environment
 		untraced(2) { mutex.synchronize &block }
 	end
 
+	public
+
 	# run the script environment. any errors will be thrown
 	# from self.join. won't actually execute scripts until
 	# the start message is recieved or start! is called.
@@ -259,6 +268,8 @@ class Environment
 		raise "operation not allowed globally"
 	end
 
+	public
+
 	# join the environment's main thread. calls to join may block
 	# and may throw exceptions from scripts.
 	def join(timeout=nil)
@@ -291,7 +302,7 @@ class Environment
 		@shutdown && @done
 	end
 
-	# pipe reader
+	# pipe reader loop
 	def pipe_main
 		until shutdown?
 			Thread.pass until @pipe
@@ -380,13 +391,14 @@ class Environment
 		@replies.delete message
 	end
 
+	# taint the params hash and call the given handler on the sandbox
 	def call_handler(object, params, path, &block)
 		params[:request_uri] = path
 		params.taint
 		sandbox :obj => object, &block
 	end
 
-	# call an action on the environment
+	# call an action on the environment TODO break this function up
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
 			$env = env.instance_variable_get :@sandbox
@@ -484,7 +496,7 @@ class Environment
 	end
 	alias :format_err :format_error
 
-	# send outgoing message to host
+	# send outgoing message to host FIXME
 	def send_message(message)
 		command, host, url, params, result, done = message
 
@@ -504,11 +516,9 @@ class Environment
 		rescue Exception => e
 			err format_error(e)
 		end
-
-		nil
 	end
 
-	# wait for a reply in a new thread
+	# wait for a reply in a new thread FIXME break inner code into new method
 	def wait_for_reply_to(message, result, status)
 		Thread.new(self) do |env|
 			begin
@@ -557,6 +567,8 @@ class Environment
 	## SCRIPT FUNCTIONS ##
 	######################
 
+	public
+
 	# add something to the outbox
 	def <<(msg)
 		must_call_from_sandbox!
@@ -567,7 +579,6 @@ class Environment
 
 	# the current state
 	def current_state
-		#must_call_from_sandbox!
 		@state[0]
 	end
 
@@ -586,16 +597,8 @@ class Environment
 		@map_id ? map_pattern(arg, &block) : map_root(arg, &block)
 	end
 
-	# XXX klasses are DEAD
-	# look up a class
-	def k(name)
-		must_call_from_sandbox!
-		@classes[current_state][name] || @classes[:global][name]
-	end
-
 	# jump to another state
 	def goto(state)
-		#must_call_from_sandbox!
 		raise "invalid state" unless @states.include? state
 		@state[0] = state
 	end
@@ -630,14 +633,6 @@ class Environment
 		raise "listeners cannot appear inside maps" if @map_id
 		@handlers[regex] = [block, object]
 		@outbox << [:map, nil, nil, {:regex => regex}]
-	end
-
-	# XXX klasses are DEAD
-	# declare a new class in this state
-	def klass(name, parent=nil, &block)
-		must_call_from_sandbox!
-		parent = k(parent) if parent
-		@classes[current_state][name] = Class.new parent, &block
 	end
 
 	# declare a new state (nested states not allowed)
@@ -684,29 +679,32 @@ class Environment
 		Thread.pass
 	end
   
-  # command request helpers
+	# issue a GET request
   def get(url, body, params)
 		must_call_from_sandbox!
     handle_request :get, url, body, params
   end
   
+	# issue a PUT request
   def put(url, body, params)
 		must_call_from_sandbox!
     handle_request :put, url, body, params
   end
   
+	# issue a POST request
   def post(url, body, params)
 		must_call_from_sandbox!
     handle_request :post, url, body, params
   end
   
+	# issue a DELETE request
   def delete(url, body, params)
 		must_call_from_sandbox!
     handle_request :delete, url, body, params
   end
-    
+
+	# handle a GET, PUT, POST, or DELETE request. # FIXME move me
   def handle_request (verb, url, body, params)
-		#must_call_from_sandbox!
     uri = URI.parse url
     host = "#{uri.host}:#{uri.port}".to_host
     result, status = [], []
@@ -715,6 +713,8 @@ class Environment
     reply = result[0]
     [reply[:code], reply[:body]]
   end
+
+	public
 
 	# reply to a GET or POST
 	def reply(params = {})
