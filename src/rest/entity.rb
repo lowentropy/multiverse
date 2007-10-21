@@ -9,23 +9,6 @@ module REST
 	# Stateless client-side interface to an entity.
 	# Sends requests over HTTP
 	class EntityAdapter < Adapter
-	  attr_reader :uri
-	  def env
-	    $env
-    end
-		def get
-			code, body = $env.get @uri.to_s, '', {}
-			raise RestError.new(code, body) if code != 200
-			body
-		end
-		def put(body, params)
-			code, body = $env.put @url, body, params
-			raise RestError.new(code, body) if code != 200
-		end
-		def delete
-			code, body = $env.delete @url, '', {}
-			raise RestError.new(code, body) if code != 200
-		end
 	end
 
 	# Server-side entity instance methods
@@ -35,7 +18,12 @@ module REST
 		%w(show update delete).each do |method|
 			handler_name = "#{method}_handler"
 			private; define_method handler_name do
-				vis, block = @pattern.send handler_name
+				begin
+					vis, block = @pattern.instance_variable_get "@#{method}"
+				rescue Exception => e
+					puts e
+					puts e.backtrace
+				end
 				if block
 					assert_visibility vis
 					block
@@ -63,17 +51,17 @@ module REST
 
 		# REST responder
 		def get
-			reply :body => show_handler.call
+			reply :body => instance_exec(&show_handler)
 		end
 
 		# REST responder
 		def put
-			update_handler.call
+			instance_exec &update_handler
 		end
 
 		# REST responder
 		def delete
-			delete_handler.call
+			instance_exec &delete_handler
 		end
 
 	end
@@ -84,9 +72,11 @@ module REST
 	#		DELETE = delete
 	class Entity < Pattern
 
+		class Empty; end
+
 		def initialize(klass, regex, &block)
 			super(regex, :show, :delete, :update, :new)
-			@entity = klass || Class.new
+			@entity = klass || Empty
 			@entities = []
 			@behaviors = []
 			@stores = []
@@ -123,7 +113,7 @@ module REST
 		def route(parent, instance, path, index)
 			%w(entity store behavior).each do |pattern|
         collection = instance_variable_get "@#{pattern.pluralize}"
-				handler = route_to_pattern(collection, parent, instance(parent, path), path, index)
+				handler = route_to_pattern(collection, parent, instance, path, index)
 				return handler if handler
 			end
 			nil
@@ -131,17 +121,17 @@ module REST
 
 		# method definer
 		def get(&block)
-			@show = block
+			@show = [@visibility, block]
 		end
 
 		# method definer
 		def update(&block)
-			@update = block
+			@update = [@visibility, block]
 		end
 
 		# method definer
 		def delete(&block)
-			@delete = block
+			@delete = [@visibility, block]
 		end
 
 		# TODO: other definers (???)
@@ -149,10 +139,11 @@ module REST
 		# helper to route messages to a sub-pattern
 		def route_to_pattern(collection, parent, instance, path, index)
 			collection.each do |sub|
-				visability, klass = *sub
+				visibility, klass = *sub
 				if klass.regex =~ path[index]
-					assert_visibility visability
-					return klass.handle(instance, klass.instance(instance, path), path, index+1)
+					assert_visibility visibility
+					new_instance = klass.instance(instance, path.subpath(index))
+					return klass.handle(instance, new_instance, path, index+1)
 				end
 			end
 		end

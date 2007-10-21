@@ -84,6 +84,7 @@ class String
 			self + 's'
 		end
 	end
+
 end
 
 
@@ -99,5 +100,12 @@ class Regexp
 	# replace instances of {uid} with the uid regex
 	def replace_uids
 		/#{source.gsub(/\{uid\}/,uid_format)}/
+	end
+end
+
+class Array
+	# get self[0..index], and show as path
+	def subpath(index=-1)
+		'/' + self[0..index].join('/')
 	end
 end

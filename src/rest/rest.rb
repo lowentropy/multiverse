@@ -2,8 +2,32 @@ $: << File.expand_path(File.dirname(__FILE__))
 
 module REST
 	class Adapter
+	  attr_reader :uri
 		def initialize(url)
 			@uri = URI.parse(url)
+		end
+	  def env
+	    $env
+    end
+		def get
+			code, body = $env.get @uri.to_s, '', {}
+			raise RestError.new(code, body) if code != 200
+			body
+		end
+		def put(body, params={})
+			code, body = $env.put @uri.to_s, body, params
+			raise RestError.new(code, body) if code != 200
+		end
+		alias :set :put
+		def delete
+			code, body = $env.delete @uri.to_s, '', {}
+			raise RestError.new(code, body) if code != 200
+		end
+		# a no-argument missing method call should refer
+		# to some kind of sub-instance
+		def method_missing(id, *args)
+			return super if args.any?
+			return "#{uri}/#{id.id2name}".to_rest
 		end
 	end
 end
@@ -17,6 +41,10 @@ require 'behavior'
 
 # RESTful extensions
 class String
+	# XXX i do not know if this is wise
+	def to_rest
+		REST::Adapter.new(self)
+	end
 	def to_entity
 		REST::EntityAdapter.new(self)
 	end

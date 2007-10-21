@@ -2,6 +2,9 @@ $: << File.expand_path(File.dirname(__FILE__))
 
 module REST
 
+	class Attribute
+	end
+
 	# Methods shared by all server-side REST pattern instances.
   module PatternInstance
     attr_reader :uri
@@ -26,7 +29,6 @@ module REST
       $env.reply :code => 302, :body => uri
     end
 		# get the builtin attributes of the pattern
-		# (XXX does this make sense for non-entities?)
 		def attributes
 			@pattern.instance_variable_get :@attributes
 		end
@@ -41,7 +43,7 @@ module REST
       attributes.each do |attr|
         @map[attr] = send attr
       end
-			@map.to_yaml
+			self.class.name + @map.to_yaml
     end
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)
@@ -84,7 +86,7 @@ module REST
 				$env[:path] = $env.params[:request_uri]
 				parts = $env[:path].split('/').reject {|p| p.empty?}
         handler = self.handle nil,
-					instance(nil,$env[:path]), parts[1..-1], 0
+					instance(nil, parts.subpath(0)), parts, 1
 				if handler
 					$env[:method] = $env.params.delete :method
 					$env[:body] = $env.params.delete :body
@@ -96,12 +98,11 @@ module REST
     end
 
 		# define builtin attributes of the pattern
-		# (XXX does this make sense for non-entities?)
     def attributes(*attrs)
       attrs.each do |attribute|
 				@attributes << attribute
         @model.send :attr_accessor, attribute
-        entity(attribute,nil) do
+        entity(/#{attribute}/, REST::Attribute) do
           get { @parent.send attribute }
           update { @parent.send "#{attribute}=", body }
         end
@@ -114,9 +115,8 @@ module REST
       @parts = parts
       parts.each do |part|
         @model.send :attr_reader, part
-        entity(part,nil) do
+        entity(/#{part}/, REST::Attribute) do
           get { @parent.send part }
-          update { @parent.send "#{part}=", body }
         end
       end
     end
@@ -127,15 +127,24 @@ module REST
       set_parent_and_path(@instance, parent, path)
     end
 
-		# create a new instance of this pattern (singleton)
+		# create a new instance of this pattern (singleton).
+		# clone the instance if you want more.
 		def create_instance(block)
 			@model = Module.new
 			instance_eval &block
-			@instance = eval("@#{type}").new
+			klass = eval "@#{type}"
+			pattern = eval "#{type.capitalize}Instance"
+			@instance = klass.new
 			@instance.instance_variable_set :@pattern, self
-			@instance.extend PatternInstance
-			@instance.extend eval("#{type.capitalize}Instance")
-			@instance.extend @model
+			[PatternInstance, pattern, @model].each do |mod|
+				mod = mod.clone
+				if @instance.respond_to?(:render) &&
+						mod.instance_methods.include?('render')
+					mod.send :remove_method, :render
+				end
+				@instance.extend mod
+			end
+			@instance
 		end
 
 		# set @parent and @uri on the instance
@@ -160,7 +169,8 @@ module REST
       Thread.new(instance, block, globals) do |instance,block,globals|
         globals.each {|name,value| $env[name] = value}
         value = instance ? instance.instance_exec(&block) : block.call
-        value.render if value && value.respond_to?(:render) # TODO: not for DELETE, others?
+        value.render if value && value.respond_to?(:render)
+				# TODO: not for DELETE, others?
       end.join
     end
 
@@ -185,6 +195,11 @@ module REST
     def private
       @visibility = :private
     end
+
+		# assert that a call is valid for protection scope
+		def assert_visibility(vis)
+			# TODO
+		end
   end
 
 end

@@ -22,4 +22,5 @@ map :rest do
   end
 end
 
+# TODO: this should be implicit...
 map_rest

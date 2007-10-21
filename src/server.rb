@@ -68,7 +68,8 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# start the server; also trap user interrupts.
-	def start
+	def start(pad=true)
+		sleep 0.5 if pad
 		@shutdown = false
 		@pipes.values.each {|pipe| send_to_pipe pipe, Message.system(:start)}
 		@http = Mongrel::HttpServer.new '0.0.0.0', config['port'].to_s
@@ -79,6 +80,7 @@ class Server < Mongrel::HttpHandler
 			shutdown
 			join 0.5
 		end
+		sleep 0.5 if pad
 	end
 
 	# shut down the server
@@ -148,6 +150,8 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
+	private
+
 	# handle a pipe's IO until shutdown
 	def pipe_main(name, pipe)
 		begin
@@ -193,8 +197,8 @@ class Server < Mongrel::HttpHandler
       body = rest.shift || ''
       params = rest.shift || {}
       req = eval "Net::HTTP::#{verb.to_s.capitalize}.new(path)"
-      req.body = body if req.request_body_permitted?
       req.set_form_data(params)
+      req.body = body if body && req.request_body_permitted?
       res = Net::HTTP.start(*host.info) {|http| http.request req }
       [res.code.to_i, res.body]
     end
@@ -212,11 +216,15 @@ class Server < Mongrel::HttpHandler
 		env.name = name if env
 	end
 
+	public
+
 	# create a new environment by some selected mode
 	def create(name=config['default_env'].to_sym, options={})
 		mode = options[:mode] || config['default_environment_mode']
 		send "create_#{mode}", name, options
 	end
+
+	private
 
 	# create an environment in a new process attached via socket
 	def create_net(name=config['default_env'].to_sym, options={})
@@ -230,6 +238,8 @@ class Server < Mongrel::HttpHandler
 		attach Environment.new(nil, nil, true), name
 	end
 
+	public
+
 	# hook an in-memory environment into this server
 	def attach(env, name=config['default_env'].to_sym)
 		in_buf, out_buf = Buffer.new, Buffer.new
@@ -239,6 +249,8 @@ class Server < Mongrel::HttpHandler
 		add_env name, env, pipe
 		start_pipe_thread name, pipe
 	end
+
+	private
 
 	# get the command for running a script
 	def script_command(arguments="", options={})
@@ -266,7 +278,7 @@ class Server < Mongrel::HttpHandler
 	# start a handler thread for the given message pipe
 	def start_pipe_thread(name, pipe)
 		@pipe_threads << Thread.new(self, name, pipe) do |server,name,pipe|
-			server.pipe_main name, pipe
+			server.send :pipe_main, name, pipe
 		end
 	end
 
@@ -380,7 +392,8 @@ class Server < Mongrel::HttpHandler
 		method, url = info[:method], info[:path]
 		params = request_params(request).merge({
 			:handler_id => handler_id,
-			:method => method})
+			:method => method,
+			:body => info[:body]})
 
 		@log.debug "calling #{env}'s handler for #{url}"
 		msg = Message.new(:action, @localhost, url, params)
@@ -428,7 +441,7 @@ class Server < Mongrel::HttpHandler
 	def request_info(request)
 		{	:method	=> request.params['REQUEST_METHOD'].downcase.to_sym,
 			:path		=> URI.parse(request.params['REQUEST_PATH']),
-			:body		=> request.body, # FIXME: ???
+			:body		=> request.body.string,
 			:params	=> request_params(request) }
 	end
 	
