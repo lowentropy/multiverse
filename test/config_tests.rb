@@ -1,24 +1,6 @@
 require 'test/unit'
 require 'config'
-
-class Array
-	def inject_with_index(value=0, &block)
-		each_with_index do |x,i|
-			value = yield value, x, i
-		end
-		value
-	end
-	def without(i)
-		self[0,i] + self[i+1..-1]
-	end
-	def permute
-		return self if empty?
-		return [self] if size == 1
-		inject_with_index([]) do |a,x,i|
-			a + without(i).permute.map {|p| [x,*p]}
-		end
-	end
-end
+require 'ext'
 
 class ConfigTests < Test::Unit::TestCase
 

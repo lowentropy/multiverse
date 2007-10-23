@@ -1,4 +1,5 @@
 require 'test/unit'
+require 'src/ext'
 require 'src/environment'
 require 'src/server'
 require 'src/host'
@@ -42,6 +43,21 @@ class RestTests < Test::Unit::TestCase
 			field.set '216'
 			assert_equal '216', field.get
 		end
+	end	
+
+	def test_should_set_attributes_and_get_entity
+		@server.load :host, {}, "scripts/test/rest/entity_attr.rb"
+		@server.start
+
+		foo = '/foo'.to_entity
+
+		foo.a.set 1
+		foo.b.set 2
+		foo.c.set 3
+
+		sets = %w(:a:\ "1" :b:\ "2" :c:\ "3").permute
+		assert sets.include?(foo.get.split(/\n/)[1..-1]),
+			"invalid: #{foo.get.inspect}"
 	end
   
 	def add_trace

@@ -43,7 +43,9 @@ module REST
       attributes.each do |attr|
         @map[attr] = send attr
       end
-			self.class.name + @map.to_yaml
+			parts = @map.to_yaml.split(/\n/)
+			parts[0] = "--- #{@pattern.type}:#{@uri}"
+			parts.join "\n"
     end
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)

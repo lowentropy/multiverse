@@ -29,7 +29,7 @@ end
 # builtin methods of Ruby's Thread class,
 # critical= and abort_on_exception=.
 class Thread
-	
+
 	# this inner class allows code running at $SAFE==0
 	# to access critical=.
 	class CritContainer
@@ -45,8 +45,14 @@ class Thread
 		end
 	end
 
+	unless respond_to? :old_crit=
+		class << self
+			alias :old_crit= :critical=
+		end
+	end
+
 	# store the old critical= method into a hidden wrapper
-	@@crit = CritContainer.new(method(:critical=))
+	@@crit = CritContainer.new(method(:old_crit=))
 
 	# redefine critical= to use the safe wrapper
 	def self.critical=(*args)
@@ -57,7 +63,7 @@ class Thread
 	def self.abort_on_exception=(*args)
 		raise "somebody's trying to be naughty!"
 	end
-	
+			
 	# don't allow any access to abort_on_exception=
 	def abort_on_exception=(*args)
 		raise "somebody's trying to be naughty!"
@@ -107,5 +113,21 @@ class Array
 	# get self[0..index], and show as path
 	def subpath(index=-1)
 		'/' + self[0..index].join('/')
+	end
+	def inject_with_index(value=0, &block)
+		each_with_index do |x,i|
+			value = yield value, x, i
+		end
+		value
+	end
+	def without(i)
+		self[0,i] + self[i+1..-1]
+	end
+	def permute
+		return self if empty?
+		return [self] if size == 1
+		inject_with_index([]) do |a,x,i|
+			a + without(i).permute.map {|p| [x,*p]}
+		end
 	end
 end

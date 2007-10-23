@@ -578,7 +578,8 @@ class Environment
     uri = URI.parse url
     host = "#{uri.host}:#{uri.port}".to_host
     result, status = [], []
-    @outbox << [verb, host, uri.path, params.merge({:body => body}), result, status]
+		newp = params.merge({:body => body.to_s})
+    @outbox << [verb, host, uri.path, newp, result, status]
     Thread.pass while result.empty?
     reply = result[0]
     [reply[:code], reply[:body]]
