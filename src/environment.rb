@@ -730,7 +730,8 @@ class Environment
 	# issue a PUT request
   def put(url, body, params)
 		must_call_from_sandbox!
-    handle_request :put, url, body, params
+    res = handle_request :put, url, body, params
+		res
   end
   
 	# issue a POST request

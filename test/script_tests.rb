@@ -5,7 +5,7 @@ require 'test/unit'
 
 class ScriptTests < Test::Unit::TestCase
 	def setup
-		@server = Server.new :log => {:level => :error}, 'port' => 4000
+		@server = Server.new :log => {:level => :fatal}, 'port' => 4000
     @host = @server.localhost
 	end
 

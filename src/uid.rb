@@ -15,4 +15,3 @@ class UID
 	end
 
 end
-

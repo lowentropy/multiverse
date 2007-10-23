@@ -1,3 +1,6 @@
+require 'net/http'
+require 'uri'
+
 # Extensions to object to include instance_exec
 class Object
 
@@ -129,5 +132,21 @@ class Array
 		inject_with_index([]) do |a,x,i|
 			a + without(i).permute.map {|p| [x,*p]}
 		end
+	end
+end
+
+%w(Get Put Post Delete).each do |verb|
+	class << "Net::HTTP::#{verb}".constantize
+		def body?
+			self::REQUEST_HAS_BODY
+		end
+	end
+end
+
+class Hash
+	def url_encode
+		'?' + map do |k,v|
+			URI.encode(k.to_s) + '=' + URI.encode(v.to_s)
+		end.join('&')
 	end
 end

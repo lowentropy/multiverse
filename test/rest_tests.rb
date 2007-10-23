@@ -50,7 +50,6 @@ class RestTests < Test::Unit::TestCase
 		@server.start
 
 		foo = '/foo'.to_entity
-
 		foo.a.set 1
 		foo.b.set 2
 		foo.c.set 3

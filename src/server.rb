@@ -10,7 +10,9 @@ require 'config'
 require 'debug'
 require 'host'
 require 'uri'
+require 'ext'
 
+include Net
 
 # The multiverse server. Runs Mongrel.
 class Server < Mongrel::HttpHandler
@@ -193,16 +195,27 @@ class Server < Mongrel::HttpHandler
 	# issue an HTTP request. this function will block until some
 	# respose is received. returns [code, body].
   def handle_request (verb, host, path, *rest)
-    debug "server.handle_command" do
-      body = rest.shift || ''
-      params = rest.shift || {}
-      req = eval "Net::HTTP::#{verb.to_s.capitalize}.new(path)"
-      req.set_form_data(params)
-      req.body = body if body && req.request_body_permitted?
-      res = Net::HTTP.start(*host.info) {|http| http.request req }
-      [res.code.to_i, res.body]
-    end
+		body, params = (rest.shift || ''), (rest.shift || {})
+		encoded = params.map {|k,v| "#{k}=#{v}"}.join("&")
+		request = create_request(verb, path, body, params)
+		response = Net::HTTP.start(*host.info) do |http|
+			http.request request
+		end
+		[response.code.to_i, response.body]
   end
+
+	# create a properly-constructed request
+	def create_request(verb, path, body, params)
+		request_class = "HTTP::#{verb.to_s.capitalize}".constantize
+		if body and request_class.body?
+			request = request_class.new(path + params.url_encode)
+			request.body = body
+		else
+			request = request_class.new path
+			request.form_data = params
+		end
+		request
+	end
 
 	# get next available script port
 	def next_port
@@ -373,16 +386,40 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
-	# get form params from request
-	def request_params(request)
-		uri = URI.parse(request.params['REQUEST_URI'])
-		params = {}
-		return (params = {}) unless uri.query
-		uri.query.split('&').each do |str|
-			next unless str
-			k, v = str.split('=').map {|s| URI.decode(s)}
-			params[k] = v
+	# get information about the request
+	def request_info(request)
+		body = read_body(request.body)
+		{	:method	=> request.params['REQUEST_METHOD'].downcase.to_sym,
+			:path		=> URI.parse(request.params['REQUEST_PATH']),
+			:body		=> body,
+			:params	=> request_params(request, body) }
+	end
+
+	# read the body from a mongrel request
+	def read_body(body)
+		if body.kind_of? StringIO
+			body.string
+		else
+			body.read
 		end
+	end
+
+	# get form params from request
+	def request_params(request, body)
+		to_decode =
+			if /encoded/ =~ request.params['Content-Type']
+				body
+			else
+				uri = request.params['REQUEST_URI']
+				uri[(uri.rindex('?')||-2)+1..-1]
+			end
+
+		params = {}
+		to_decode.split('&').each do |pair|
+			key, val = pair.split('=').map {|s| URI.decode(s)}
+			params[key] = val
+		end
+
 		params
 	end
 
@@ -390,7 +427,7 @@ class Server < Mongrel::HttpHandler
 	def handle_with(request, env, handler_id)
 		info = request_info request
 		method, url = info[:method], info[:path]
-		params = request_params(request).merge({
+		params = request_params(request, info[:body]).merge({
 			:handler_id => handler_id,
 			:method => method,
 			:body => info[:body]})
@@ -437,19 +474,6 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
-	# get method and url of request
-	# XXX TODO MAYDAY! must examine content type to determine: 
-	#   a) how to get the body (req body or body param).
-	#   b) where the params are (uri or req body).
-	# also, must revise creation of requests! (i'm thinking always
-	# use body-encoded params (when possible, not w/ get obviously)
-	# and always encode real body into body params)
-	def request_info(request)
-		{	:method	=> request.params['REQUEST_METHOD'].downcase.to_sym,
-			:path		=> URI.parse(request.params['REQUEST_PATH']),
-			:body		=> request.body.string,
-			:params	=> request_params(request) }
-	end
 	
 	# find the handler for the given url
 	def handler_for(url)
