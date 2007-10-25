@@ -102,14 +102,54 @@ module REST
 		# define builtin attributes of the pattern
     def attributes(*attrs)
       attrs.each do |attribute|
-				@attributes << attribute
-        @model.send :attr_accessor, attribute
-        entity(/#{attribute}/, REST::Attribute) do
-          get { @parent.send attribute }
-          update { @parent.send "#{attribute}=", body }
-        end
+				if attribute.kind_of? Hash
+					attribute.each do |a,type|
+						add_attribute a, type
+					end
+				else
+					add_attribute attribute, :string
+				end
       end
     end
+
+		%w(int string).each do |type|
+			define_method type do |*attrs|
+				hash = {}
+				attrs.each do |a|
+					hash[a] = type.to_sym
+				end
+				attributes hash
+			end
+		end
+
+		# add an attribute of the given type. if there is not already a
+		# function of this name in the user class, an acceessor is added
+		# which honors the given type (currently only :string or :int).
+		# this funciton adds a new entity of the given name, and attaches
+		# its actions to the parent pattern instance.
+		def add_attribute(name, type)
+			@attributes << name
+			uclass = eval "@#{self.type}"
+			entity(/#{name}/, REST::Attribute) do
+				read, write = false, false
+				if uclass.instance_methods.include? name.to_s
+					read = true
+					write = true if uclass.instance_methods.include? "#{name}="
+				else
+					read, write = true, true
+					uclass.send :attr_reader, name
+					uclass.send :define_method, "#{name}=" do |value|
+						value = case type
+							when :int then value.to_i
+							else value
+						end
+						eval "@#{name} = value"
+					end
+				end
+				get { @parent.send name } if read
+				update { @parent.send "#{name}=", body } if write
+			end
+		end
 
 		# declare named sections of the path to the resource,
 		# to be used as (non-queryable) attributes.

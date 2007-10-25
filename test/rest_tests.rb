@@ -58,6 +58,18 @@ class RestTests < Test::Unit::TestCase
 		assert sets.include?(foo.get.split(/\n/)[1..-1]),
 			"invalid: #{foo.get.inspect}"
 	end
+
+	# isn't this test sexy?
+	def test_active_entity
+		@server.load :host, {}, "scripts/test/rest/entity_active.rb"
+		@server.start
+
+		foo = '/foo'.to_entity
+		foo.a.set 3
+		foo.b.set 7
+
+		assert_equal '21', foo.c.get
+	end
   
 	def add_trace
 		last_msg = nil
