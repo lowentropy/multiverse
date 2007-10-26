@@ -35,6 +35,7 @@ Rcov::RcovTask.new do |t|
   t.libs << "src"
   t.test_files = FileList['test/*.rb']
   t.output_dir = 'doc/coverage'
+	t.rcov_opts << "--exclude log4r/*"
   t.verbose = true
 end
 
