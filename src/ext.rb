@@ -4,6 +4,21 @@ require 'uri'
 # Extensions to object to include instance_exec
 class Object
 
+	@@define_iec = proc do |block|
+		begin
+			old_c, Thread.critical = Thread.critical, true
+			n = 0; n += 1 while respond_to?(name = "__instance_exec#{n}")
+			InstanceExecHelper.module_eval { define_method(name, &block) }
+			return name
+		ensure
+			Thread.critical = old_c
+		end
+	end
+
+	@@undefine_iec = proc do |name|
+		InstanceExecHelper.module_eval { remove_method(name) }
+	end
+
 	# Container module for dynamic instance_exec methods
   module InstanceExecHelper; end
   include InstanceExecHelper
@@ -13,18 +28,10 @@ class Object
 	# this works by dynamically creating methods on the
 	# helper module (which is included in the object).
   def instance_exec(*args, &block)
-		begin
-			old_c, Thread.critical = Thread.critical, true
-			n = 0; n += 1 while respond_to?(name = "__instance_exec#{n}")
-			InstanceExecHelper.module_eval{ define_method(name, &block) }
-		ensure
-			Thread.critical = old_c
-		end
-		begin
-			return send(name, *args)
-		ensure
-			InstanceExecHelper.module_eval{ remove_method(name) }
-		end
+		name = @@define_iec.call block
+		value = send(name, *args)
+		@@undefine_iec.call name
+		value
 	end
 end
 

@@ -74,6 +74,10 @@ class ObjectPipe
 		@in.close unless @in.closed?
 		@out.close unless @out.closed?
 	end
+
+	def closed?
+		@in.closed?
+	end
 end
 
 
@@ -134,10 +138,14 @@ class MemoryPipe < MessagePipe
 		msg = @in.shift
 		dbg_read msg
 		if msg == :eof
+			puts "READ EOF" if @debug
 			@closed = true
 			return nil
 		end
 		msg
+	end
+	def closed?
+		@closed
 	end
 	# write a message to the pipe (note that flushing does nothing).
 	def write(object, flush=true)
@@ -147,5 +155,6 @@ class MemoryPipe < MessagePipe
 	# close the write end of the pipe by sending :eof
 	def close
 		@out << :eof
+		puts "WROTE EOF" if @debug
 	end
 end

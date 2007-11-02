@@ -2,7 +2,7 @@ fun(:start) { quit }
 
 class Foo
 	def c
-		@a * @b
+		a * b
 	end
 end
 

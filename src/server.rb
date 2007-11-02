@@ -158,6 +158,7 @@ class Server < Mongrel::HttpHandler
 	def pipe_main(name, pipe)
 		begin
 			until @shutdown
+				break if pipe.closed?
 				next unless (msg = next_message(pipe))
 				start_handler name, pipe, msg
 				Thread.pass unless @shutdown
@@ -175,7 +176,8 @@ class Server < Mongrel::HttpHandler
 		begin
 			pipe.read
 		rescue IOError => e
-			nil
+			@log.info "pipe closed"
+			return nil
 		end
 	end
 	

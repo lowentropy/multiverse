@@ -9,6 +9,7 @@ module REST
   module PatternInstance
     attr_reader :uri
 		# actual (request) path to instance
+		# FIXME these are sandbox-local!
 		def path
 			$env[:path]
 		end
@@ -17,10 +18,12 @@ module REST
 			$env.params
 		end
 		# body of request passed to instance
+		# FIXME these are sandbox-local!
 		def body
 			$env[:body]
 		end
 		# method of request to instance
+		# FIXME these are sandbox-local!
 		def method
 			$env[:method]
 		end
@@ -138,6 +141,18 @@ module REST
 				else
 					read, write = true, true
 					uclass.send :attr_reader, name
+					# TODO find out why this works but not the one below
+#					uclass.instance_eval <<-END
+#						def #{name}=(value)
+#							value = case :#{type}
+#								when :int then value.to_i
+#								else value
+#							end
+#							@#{name} = value
+#						end
+#					END
+#					XXX the below gave 'can't intern tainted string'
+#					raise 'foo'
 					uclass.send :define_method, "#{name}=" do |value|
 						value = case type
 							when :int then value.to_i
