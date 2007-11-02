@@ -480,7 +480,7 @@ class Server < Mongrel::HttpHandler
 	# find the handler for the given url
 	def handler_for(url)
 		@maps.each do |regex,value|
-			if regex =~ url.path
+			if regex.match_all? url.path.split('/')[1]
 				@log.debug "#{url} maps to #{value[0]} via #{regex}"
 				return [value[0], value[1]] 
 			end

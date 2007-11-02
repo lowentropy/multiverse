@@ -140,7 +140,7 @@ module REST
 		def route_to_pattern(collection, parent, instance, path, index)
 			collection.each do |sub|
 				visibility, klass = *sub
-				if klass.regex =~ path[index]
+				if klass.regex.match_all? path[index]
 					assert_visibility visibility
 					new_instance = klass.instance(instance, path.subpath(index))
 					return klass.handle(instance, new_instance, path, index+1)

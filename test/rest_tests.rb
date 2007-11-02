@@ -68,5 +68,23 @@ class RestTests < Test::Unit::TestCase
 
 		assert_equal '21', foo.c.get
 	end
+
+	def test_dynamic_entity_name
+		@server.load :host, {}, "scripts/test/rest/entity_dynamic_name.rb"
+		@server.start
+
+		%w(/foo /bar /baz /bazzz).each do |name|
+			assert_nothing_raised do
+				assert_equal '216', name.to_entity.get
+			end
+		end
+
+		%w(/asdf /monkey /bazzzz).each do |name|
+			assert_raise REST::RestError do
+				name.to_entity.get
+				puts "#{name} succeeded!"
+			end
+		end
+	end
   
 end

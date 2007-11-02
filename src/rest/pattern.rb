@@ -52,7 +52,7 @@ module REST
     end
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)
-      m = @regex.match path
+      m = @regex.match_all? path
       @parts.map_with_index do |part,i|
         eval "@#{part} = m[i+1]"
       end

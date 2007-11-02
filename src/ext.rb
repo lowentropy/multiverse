@@ -117,6 +117,13 @@ class Regexp
 	def replace_uids
 		/#{source.gsub(/\{uid\}/,uid_format)}/
 	end
+
+	# like match, but returns nil unless the matching text
+	# is the same length as the input string
+	def match_all?(str)
+		return nil unless (m = match str)
+		m[0].size == str.size ? m : nil
+	end
 end
 
 class Array

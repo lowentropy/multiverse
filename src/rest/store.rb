@@ -55,7 +55,7 @@ module REST
 				collection = instance_variable_get "@#{pattern.pluralize}"
 				collection.each do |sub|
 					vis, klass = *sub
-					if sub.regex =~ path[index]
+					if sub.regex.match_all? path[index]
 						assert_visibility vis
 						return klass.handle(instance, klass.instance(instance, path[index]), path, index+1)
 					end
@@ -66,7 +66,7 @@ module REST
 
 		# dynamic routing
 		def route_to_dynamic(parent, instance, path, index)
-			if @entity.regex =~ path[index]
+			if @entity.regex.match_all? path[index]
 				object = find path[index]
 				set_parent_and_path(object, instance, path[index])
 				return(@entity.handle instance, object, path, index+1)

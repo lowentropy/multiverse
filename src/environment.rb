@@ -451,7 +451,7 @@ class Environment
 	def resolve_handler(path)
 		parts = path.split('/').reject {|s| s.empty?}
 		@handlers.each do |regex,block|
-			return block if regex =~ parts[0]
+			return block if regex.match_all? parts[0]
 		end
 		nil
 	end
@@ -474,7 +474,7 @@ class Environment
 			return(host_error(:no_path, path, params))
 		end
 		ids = @url_patterns[map_id].keys.select do |pattern|
-			pattern =~ part
+			pattern.match_all? part
 		end
 		if ids.empty?
 			return(host_error :no_path, path, params)
@@ -488,8 +488,10 @@ class Environment
 	# resolve action name in map context into block
 	def resolve_action(map_id, action, params)
 		return nil unless map_id && action
-		action = action.to_sym unless action == ""
-		block, visibility = @listeners[map_id][action]
+		begin
+			action = action.to_sym unless action == ""
+			block, visibility = @listeners[map_id][action]
+		end
 		# TODO: check visibility
 		return block
 	end
