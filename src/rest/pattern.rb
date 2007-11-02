@@ -66,6 +66,27 @@ module REST
 		def assert_visibility(visibility)
 			# TODO
 		end
+		private
+		def adapters(methods)
+			methods.each do |method|
+				handler_name = "#{method}_handler"
+				private; define_method handler_name do
+					begin
+						vis, block = @pattern.instance_variable_get "@#{method}"
+					rescue Exception => e
+						puts e
+						puts e.backtrace
+					end
+					if block
+						assert_visibility vis
+						block
+					else
+						# TODO: security checks for defaults?
+						proc { default_get }
+					end
+				end
+			end
+		end
   end
 
   # pattern root class

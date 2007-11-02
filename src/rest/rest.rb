@@ -78,12 +78,12 @@ module REST
 	end
 
 	# toplevel entity
-	def entity(regex, klass, &block)
+	def entity(regex, klass=nil, &block)
 		(@entities ||= []) << [(@visibility||:public), Entity.new(klass, regex, &block)]
 	end
 
 	# toplevel store
-	def store(regex, klass, &block)
+	def store(regex, klass=nil, &block)
 		(@stores ||= []) << [(@visibility||:public), Store.new(klass, regex, &block)]
 	end
 

@@ -10,7 +10,41 @@ module REST
 	# functionality of server-side store instances
 	module StoreInstance
 		extend PatternInstance
-		# TODO
+
+		adapters %w(index find add)
+
+		def default_index
+			reply :code => 405
+		end
+
+		def default_find
+			nil
+		end
+
+		# by default, the add action will try to determine the full
+		# url of the entity to add from its parameters, assuming that
+		# the path parts are present and a finder has been declared.
+		# then try to call the 'new' handler on that entity.
+		def default_add
+			reply :code => 405 unless @finder
+			parts = @pattern.entity.parts.map { params[part] }
+			# TODO: make sure reply returns non-nil, mmkay?
+			reply :code => 405 and return if parts.include? nil
+			reply :code => 405 unless @finder.arity == parts.size
+			entity = instance_exec parts, &finder
+			reply :code => 405 unless entity
+			entity.new
+		end
+
+		def get
+			value = instance_exec(&index_handler)
+			reply :body => value unless $env.replied?
+		end
+
+		def post
+			instance_exec &add_handler
+		end
+
 	end
 
 	# a store of a certain type of entity, and zero or more behaviors
@@ -18,12 +52,20 @@ module REST
 	#		POST = add
 	class Store < Pattern
 
+		class Empty; end
+
 		def initialize(klass, regex, &block)
 			super(regex, :index, :find, :add)
-			@store = klass
+			@store = klass || Empty
 			@static = {}
 			@behaviors = []
 			create_instance(block)
+		end
+
+		%w(index find add).each do |method|
+			define_method "#{method}_handler" do
+				eval "@#{method}"
+			end
 		end
 
 		# sub-pattern declarations
@@ -74,31 +116,26 @@ module REST
 			false
 		end
 
-		# look up a sub-pattern instance given a path by
-		# calling the api-supplied handler.
-		def find(path)
-			parts = @entity.parse path
-			vis, block = @find
-			assert_visibility vis
-			instance.instance_exec *parts, &block
+		# set the indexing behavior
+		def index(&block)
+			@index = [@visibility, block]
 		end
 
-		# REST responder
-		def get(path)
-			vis, block = @index
-			assert_visibility vis
-			run_handler :path => path, &block
+		# the find method is used internally when there
+		# is a dynamic entity declaration with path elements
+		def find(&block)
+			@find = block
 		end
 
-		# REST responder
-		def post(path, body, params)
-			entity = @entity.new path, body, params
-			vis, block = @add
-			assert_visibility vis
-			run_handler :path => path, :body => body, :params => params do
-				block.call entity
-			end
+		# define the method to add a member
+		def add(&block)
+			@add = block
 		end
+
+		# TODO: if a DELETE is called on a direct sub-entity of a store,
+		# AND if that entity does not support DELETE, THEN the store's
+		# user-definied @delete should run, returning 405 if none.
+
 	end
 
 end

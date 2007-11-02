@@ -15,23 +15,11 @@ module REST
 	module EntityInstance
 		extend PatternInstance
 
-		%w(show update delete).each do |method|
-			handler_name = "#{method}_handler"
-			private; define_method handler_name do
-				begin
-					vis, block = @pattern.instance_variable_get "@#{method}"
-				rescue Exception => e
-					puts e
-					puts e.backtrace
-				end
-				if block
-					assert_visibility vis
-					block
-				else
-					# TODO: security checks for defaults?
-					proc { default_get }
-				end
-			end
+		adapters %w(show update delete new)
+
+		# default non-REST action
+		def default_new
+			reply :code => 405
 		end
 
 		# default REST action
@@ -41,17 +29,18 @@ module REST
 
 		# default REST action
 		def default_put
-			# TODO
+			reply :code => 405
 		end
 
 		# default REST action
 		def default_delete
-			# TODO
+			reply :code => 405
 		end
 
 		# REST responder
 		def get
-			reply :body => instance_exec(&show_handler)
+			value = instance_exec &show_handler
+			reply :body => value unless $env.replied?
 		end
 
 		# REST responder
@@ -83,7 +72,7 @@ module REST
 			create_instance(block)
 		end
 
-		%w(show update delete).each do |method|
+		%w(show update delete new).each do |method|
 			define_method "#{method}_handler" do
 				eval "@#{method}"
 			end
