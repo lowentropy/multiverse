@@ -52,8 +52,8 @@ module REST
     end
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)
-      m = @regex.match_all? path
-      @parts.map_with_index do |part,i|
+      m = @pattern.regex.match path.split('/')[-1]
+      @pattern.parts.each_with_index do |part,i|
         eval "@#{part} = m[i+1]"
       end
     end
@@ -71,13 +71,14 @@ module REST
   # pattern root class
   class Pattern
 
-    attr_reader :regex
+    attr_reader :regex, :parts
 
     def initialize(regex, *actions)
       @regex = regex
       @visibility = :public
       @actions = actions
 			@attributes = []
+			@parts = []
     end
 
 		# take the API definition and send messages to the environment, and
@@ -208,6 +209,7 @@ module REST
     def set_parent_and_path(object, parent, path)
       object.instance_variable_set :@parent, parent
       object.instance_variable_set :@uri, path
+			object.parse path
       object
     end
 

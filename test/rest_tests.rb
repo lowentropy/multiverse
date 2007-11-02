@@ -86,5 +86,24 @@ class RestTests < Test::Unit::TestCase
 			end
 		end
 	end
+
+	def test_sub_entity
+		@server.load :host, {}, "scripts/test/rest/entity_sub.rb"
+		@server.start
+
+		assert_equal 'foo', (foo = '/foo'.to_entity).get
+		assert_equal 'bar', foo.bar.get
+		assert_equal 'baz', foo.bar.baz.get
+	end
+	
+	def test_parse_uri
+		@server.load :host, {}, "scripts/test/rest/entity_parse_uri.rb"
+		@server.start
+
+		10.times do
+			num = rand(100000).to_s
+			assert_equal num, "/a#{num}z".to_entity.get
+		end
+	end
   
 end
