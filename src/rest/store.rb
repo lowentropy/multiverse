@@ -17,35 +17,38 @@ module REST
 			reply :code => 405
 		end
 
-		def default_find
-			nil
+		def default_find(*args)
+			reply :code => 405
 		end
 
-		# by default, the add action will try to determine the full
-		# url of the entity to add from its parameters, assuming that
-		# the path parts are present and a finder has been declared.
-		# then try to call the 'new' handler on that entity.
-		def default_add
-			reply :code => 405 unless @finder
-			parts = @pattern.entity.parts.map { params[part] }
-			# TODO: make sure reply returns non-nil, mmkay?
-			reply :code => 405 and return if parts.include? nil
-			reply :code => 405 unless @finder.arity == parts.size
-			entity = instance_exec parts, &finder
-			reply :code => 405 unless entity
-			entity.new
-		end
+		# due to the coding of post, this stub should never be called
+		# def default_add
+		# end
 
 		def get
 			value = instance_exec(&index_handler)
 			reply :body => value unless $env.replied?
 		end
 
+		# POSTing to a store has many possible behaviors. In order of
+		# their precedence, they are:
+		# 	- call the zero-argument user-defined add handler, if any
+		# 	- if no add handler at all, call entity's PUT handler
+		# 	- call entity's new handler, and fail if that doesn't work
+		# 	- call the one-argument add handler with the item, if any
+		# 	- fail with 405 (FIXME: something more appropriate)
 		def post
-			instance_exec &add_handler
+			return instance_exec(&add_handler) if @add and @add.arity == 0
+			entity_path = @entity.generate_path
+			item = @entity.instance(self, entity_path, true)
+			return if $env.replied?
+			reply(:code => 405) and return unless item
+			@add ? instance_exec(item,&add_handler) : item.put
 		end
 
 	end
+
+	# TODO: check action arity at define-time
 
 	# a store of a certain type of entity, and zero or more behaviors
 	#		GET = index
@@ -108,10 +111,14 @@ module REST
 
 		# dynamic routing
 		def route_to_dynamic(parent, instance, path, index)
-			if @entity.regex.match_all? path[index]
-				object = find path[index]
-				set_parent_and_path(object, instance, path[index])
-				return(@entity.handle instance, object, path, index+1)
+			if (match = @entity.regex.match_all? path[index])
+				item = instance.do_find match
+				unless item
+					# TODO: if it's a PUT, try a POST on us instead
+					# otherwise, find out how to return a 404 from here
+				end
+				set_parent_and_path(item, instance, path[index])
+				return(@entity.handle instance, item, path, index+1)
 			end
 			false
 		end

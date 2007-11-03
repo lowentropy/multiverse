@@ -11,6 +11,8 @@ module REST
 	class EntityAdapter < Adapter
 	end
 
+	# TODO: make params a hash that calls to_s on keys
+
 	# Server-side entity instance methods
 	module EntityInstance
 		extend PatternInstance
@@ -19,16 +21,24 @@ module REST
 
 		# default non-REST action
 		def default_new
-			reply :code => 405
+			@pattern.attributes.each do |attr|
+				eval "@#{attr} = params[attr]"
+			end
+		end
+
+		def do_new
+			inst = clone
+			inst.instance_exec &inst.new_handler
+			inst
 		end
 
 		# default REST action
-		def default_get
+		def default_show
 			render
 		end
 
 		# default REST action
-		def default_put
+		def default_update
 			reply :code => 405
 		end
 

@@ -38,6 +38,7 @@ module REST
 		# XXX i'm not sure if this is recommended... just for debugging...
 		def reply(*args)
 			$env.reply *args
+			true
 		end
 		# TODO: render @map with requested media type or extension
 		# for now, rendering as yaml FIXME incorrect yaml? no obj type/name?
@@ -82,7 +83,7 @@ module REST
 						block
 					else
 						# TODO: security checks for defaults?
-						proc { default_get }
+						proc {|*args| send "default_#{method}", *args }
 					end
 				end
 			end
@@ -200,10 +201,23 @@ module REST
       end
     end
 
+		# re-generate a possible source path from the regex and
+		# the parameters. if any parameters are missing, return nil.
+		def generate_path
+			path = @regex.source
+			@parts.each do |part|
+				return nil unless params[part]
+				path.sub! /\([^)]+\)/, params[part]
+			end
+			path
+		end
+
 		# get an initialized reference to the instance of the
 		# pattern to be used to receive messages.
-    def instance(parent, path)
-      set_parent_and_path(@instance, parent, path)
+    def instance(parent, path, clone=false)
+			return nil unless path
+			inst = clone ? @instance.clone : @instance
+      set_parent_and_path(inst, parent, path)
     end
 
 		# create a new instance of this pattern (singleton).
