@@ -6,6 +6,11 @@ require 'entity'
 require 'behavior'
 
 module REST
+	#
+	# Stateless client-side interface to a store.
+	# Sends requests over HTTP
+	class StoreAdapter < Adapter
+	end
 
 	# functionality of server-side store instances
 	module StoreInstance
@@ -38,11 +43,13 @@ module REST
 		# 	- call the one-argument add handler with the item, if any
 		# 	- fail with 405 (FIXME: something more appropriate)
 		def post
+			entity = @pattern.instance_variable_get(:@entity)[1]
 			return instance_exec(&add_handler) if @add and @add.arity == 0
-			entity_path = @entity.generate_path
-			item = @entity.instance(self, entity_path, true)
+			entity_path = entity.generate_path params
+			puts "ENTITY PATH: #{entity_path} from #{params.inspect}"
+			item = entity.instance(self, entity_path, true)
 			return if $env.replied?
-			reply(:code => 405) and return unless item
+			reply(:code => 405, :body => "can't gen!") and return unless item
 			@add ? instance_exec(item,&add_handler) : item.put
 		end
 
@@ -77,7 +84,7 @@ module REST
 		end
 
 		# declare a dynamic or static entity inside this store
-		def entity(regex_or_name, klass, &block)
+		def entity(regex_or_name, klass=nil, &block)
 			if regex.is_a? Regexp
 				raise "only one regex entity declaration allowed" if @entity
 				@entity = [@visibility, Entity.new(klass, regex_or_name, &block)]
@@ -93,6 +100,11 @@ module REST
 			end
 			return true if route_to_dynamic parent, instance, path, index
 			false
+		end
+		#
+		# type of pattern we are
+		def type
+			'store'
 		end
 
 		%w(entity collection behavior).each do |pattern|

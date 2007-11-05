@@ -203,7 +203,7 @@ module REST
 
 		# re-generate a possible source path from the regex and
 		# the parameters. if any parameters are missing, return nil.
-		def generate_path
+		def generate_path(params)
 			path = @regex.source
 			@parts.each do |part|
 				return nil unless params[part]

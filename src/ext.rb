@@ -163,4 +163,23 @@ class Hash
 			URI.encode(k.to_s) + '=' + URI.encode(v.to_s)
 		end.join('&')
 	end
+	def stringify!
+		class << self
+			alias :old_get :[]
+			alias :old_delete :delete
+			def [](k)
+				old_get(k) || old_get(k.to_s)
+			end
+			def delete(k)
+				keys.include?(k) ? old_delete(k) : old_delete(k.to_s)
+			end
+		end
+		each do |k,v|
+			self[k.to_s] = delete(k) unless k.is_a? String
+		end
+		self
+	end
+	def stringify
+		clone.stringify!
+	end
 end

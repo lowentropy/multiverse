@@ -19,6 +19,10 @@ module REST
 			raise RestError.new(code, body) if code != 200
 		end
 		alias :set :put
+		def post(body, params={})
+			code, body = $env.post @uri.to_s, body, params
+			raise RestError.new(code, body) if code != 200
+		end
 		def delete
 			code, body = $env.delete @uri.to_s, '', {}
 			raise RestError.new(code, body) if code != 200

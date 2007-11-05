@@ -413,7 +413,7 @@ class Environment
 		Thread.new(self, path, params) do |env,path,params|
 			$env = env.instance_variable_get :@sandbox
 			begin
-				env.local_set.call :params => params
+				env.local_set.call :params => params.stringify!
 				dbg "trying to find handler for #{path}"
 				# first look for a handler
 				block, obj = resolve_handler path

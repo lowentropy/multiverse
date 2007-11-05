@@ -432,7 +432,7 @@ class Server < Mongrel::HttpHandler
 		params = request_params(request, info[:body]).merge({
 			:handler_id => handler_id,
 			:method => method,
-			:body => info[:body]})
+			:body => info[:body]})#.stringify!
 
 		@log.debug "calling #{env}'s handler for #{url}"
 		msg = Message.new(:action, @localhost, url, params)
