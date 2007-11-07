@@ -10,6 +10,9 @@ module REST
 	# Stateless client-side interface to a store.
 	# Sends requests over HTTP
 	class StoreAdapter < Adapter
+		def [](sub)
+			"#{uri}/#{sub}".to_rest
+		end
 	end
 
 	# functionality of server-side store instances
@@ -24,6 +27,13 @@ module REST
 
 		def default_find(*args)
 			reply :code => 405
+			nil
+		end
+
+		def do_find(match)
+			entity = @pattern.instance_variable_get(:@entity)[1]
+			args = match[1, entity.parts.size]
+			instance_exec *args, &find_handler
 		end
 
 		# due to the coding of post, this stub should never be called
@@ -44,13 +54,13 @@ module REST
 		# 	- fail with 405 (FIXME: something more appropriate)
 		def post
 			entity = @pattern.instance_variable_get(:@entity)[1]
-			return instance_exec(&add_handler) if @add and @add.arity == 0
+			add = @pattern.instance_variable_get(:@add)[1]
+			return instance_exec(&add_handler) if add and add.arity == 0
 			entity_path = entity.generate_path params
-			puts "ENTITY PATH: #{entity_path} from #{params.inspect}"
 			item = entity.instance(self, entity_path, true)
 			return if $env.replied?
 			reply(:code => 405, :body => "can't gen!") and return unless item
-			@add ? instance_exec(item,&add_handler) : item.put
+			add ? instance_exec(item,&add_handler) : item.put
 		end
 
 	end
@@ -69,6 +79,7 @@ module REST
 			@store = klass || Empty
 			@static = {}
 			@behaviors = []
+			@entities = []
 			create_instance(block)
 		end
 
@@ -95,19 +106,19 @@ module REST
 
 		# routers
 		def route(parent, instance, path, index)
-			%w(entity collection behavior).each do |pattern|
-				return true if send("route_to_#{pattern}", parent, instance, path, index)
+			%w(entity behavior).each do |pattern|
+				inst = send("route_to_#{pattern}", parent,instance,path,index)
+				return inst if inst
 			end
-			return true if route_to_dynamic parent, instance, path, index
-			false
+			route_to_dynamic parent, instance, path, index
 		end
-		#
+
 		# type of pattern we are
 		def type
 			'store'
 		end
 
-		%w(entity collection behavior).each do |pattern|
+		%w(entity behavior).each do |pattern|
 			define_method "route_to_#{pattern}" do |parent,instance,path,index|
 				collection = instance_variable_get "@#{pattern.pluralize}"
 				collection.each do |sub|
@@ -123,16 +134,24 @@ module REST
 
 		# dynamic routing
 		def route_to_dynamic(parent, instance, path, index)
-			if (match = @entity.regex.match_all? path[index])
+			if (match = @entity[1].regex.match_all? path[index])
 				item = instance.do_find match
 				unless item
-					# TODO: if it's a PUT, try a POST on us instead
-					# otherwise, find out how to return a 404 from here
+					if $env.params[:method] == :put and
+						 index == (path.size - 1)
+						$env.params[:method] = :post
+						@entity[1].parse(path[-1]).each do |part,value|
+							$env.params[part] = value
+						end
+						return instance
+					end
+					$env.reply :code => 404
+					return nil
 				end
 				set_parent_and_path(item, instance, path[index])
-				return(@entity.handle instance, item, path, index+1)
+				return(@entity[1].handle instance, item, path, index+1)
 			end
-			false
+			nil
 		end
 
 		# set the indexing behavior
@@ -143,12 +162,12 @@ module REST
 		# the find method is used internally when there
 		# is a dynamic entity declaration with path elements
 		def find(&block)
-			@find = block
+			@find = [@visibility, block]
 		end
 
 		# define the method to add a member
 		def add(&block)
-			@add = block
+			@add = [@visibility, block]
 		end
 
 		# TODO: if a DELETE is called on a direct sub-entity of a store,

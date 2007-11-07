@@ -11,7 +11,8 @@ end
 store(/foo/,GenericStore) do
 	entity(/([a-z]+)-([0-9]+)/) do
 		path :name, :number
-#		new { default_new }
+		update {}
+		get { "#{name}-#{number}" }
 	end
 	index { @items }
 	find {|name,num| self[name,num]}

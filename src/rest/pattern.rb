@@ -53,10 +53,9 @@ module REST
     end
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)
-      m = @pattern.regex.match path.split('/')[-1]
-      @pattern.parts.each_with_index do |part,i|
-        eval "@#{part} = m[i+1]"
-      end
+			@pattern.parse(path).each do |part,value|
+				eval "@#{part} = value"
+			end
     end
 		# pretty-print a reference
 		def to_s
@@ -124,6 +123,14 @@ module REST
 				end
       end
     end
+
+		def parse(path)
+			map, m = {}, regex.match(path.split('/')[-1])
+      parts.each_with_index do |part,i|
+				map[part] = m[i + 1]
+      end
+			map
+		end
 
 		# define builtin attributes of the pattern
     def attributes(*attrs)
@@ -249,14 +256,14 @@ module REST
     end
 
 		# XXX what the hell is this?
-    def method_missing(id, *args, &block)
-      sym = id.id2name.to_sym
-      if @actions.include? sym
-        instance_variable_set sym, [@visibility, block]
-      else
-        super
-      end
-    end
+#    def method_missing(id, *args, &block)
+#      sym = id.id2name.to_sym
+#      if @actions.include? sym
+#        instance_variable_set sym, [@visibility, block]
+#      else
+#        super
+#      end
+#    end
 
 		# run a pattern instance's handler for the message
     def run_handler(instance, *globals, &block)
@@ -276,7 +283,7 @@ module REST
       else
         instance
       end
-			$env.dbg "handler for #{instance} at #{path[index]} is #{val}"
+			$env.dbg "handler for #{$env.params[:method]} #{instance} at #{path[index]} is #{val}"
 			val
     end
 

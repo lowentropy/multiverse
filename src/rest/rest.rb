@@ -14,12 +14,12 @@ module REST
 			raise RestError.new(code, body) if code != 200
 			body
 		end
-		def put(body, params={})
+		def put(body='', params={})
 			code, body = $env.put @uri.to_s, body, params
 			raise RestError.new(code, body) if code != 200
 		end
 		alias :set :put
-		def post(body, params={})
+		def post(body='', params={})
 			code, body = $env.post @uri.to_s, body, params
 			raise RestError.new(code, body) if code != 200
 		end

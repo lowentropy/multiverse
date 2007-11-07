@@ -1,4 +1,4 @@
-collection(/grid/, PGrid) do
+store(/grid/, PGrid) do
 
 	attributes :uid, :prefix, :links, :size
 
@@ -12,7 +12,7 @@ collection(/grid/, PGrid) do
 		public
 		path :uid
 
-		create	{ cached.new }
+		new			{ cached.new }
 		show		{ @grid.handle?(uid) ? cached.get : redirect }
 		update	{ cached.edit; publish unless params[:local] }
 		delete	{ owner? ? cached.delete : forbidden }
