@@ -66,6 +66,11 @@ module REST
 		def assert_visibility(visibility)
 			# TODO
 		end
+		%w(get put post delete).each do |verb|
+			define_method verb do
+				reply :code => 405
+			end
+		end
 		private
 		def adapters(methods)
 			methods.each do |method|
@@ -244,16 +249,6 @@ module REST
 			object.parse path
       object
     end
-
-		# XXX what the hell is this?
-#    def method_missing(id, *args, &block)
-#      sym = id.id2name.to_sym
-#      if @actions.include? sym
-#        instance_variable_set sym, [@visibility, block]
-#      else
-#        super
-#      end
-#    end
 
 		# run a pattern instance's handler for the message
     def run_handler(instance, *globals, &block)

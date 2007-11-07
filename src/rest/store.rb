@@ -27,7 +27,6 @@ module REST
 		end
 
 		def default_find(*args)
-			reply :code => 405
 			nil
 		end
 
@@ -67,7 +66,7 @@ module REST
 		# their precedence, they are:
 		# 	- call the zero-argument user-defined add handler, if any
 		# 	- if no add handler at all, call entity's PUT handler
-		# 	- call entity's new handler, and fail if that doesn't work
+		# 	- call entity's new handler [[and fail if that doesn't work]]
 		# 	- call the one-argument add handler with the item, if any
 		# 	- fail with 405 (FIXME: something more appropriate)
 		def post
@@ -77,7 +76,7 @@ module REST
 			entity_path = entity.generate_path params
 			item = entity.instance(self, entity_path, true)
 			return if $env.replied?
-			reply(:code => 405, :body => "can't gen!") and return unless item
+			reply(:code => 405) and return unless item
 			return item.put unless add
 			item.new
 			instance_exec item, &add_handler
