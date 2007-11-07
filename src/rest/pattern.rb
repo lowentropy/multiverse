@@ -95,7 +95,7 @@ module REST
     attr_reader :regex, :parts
 
     def initialize(regex, *actions)
-      @regex = regex
+      @regex = regex.replace_uids
       @visibility = :public
       @actions = actions
 			@attributes = []
@@ -171,16 +171,6 @@ module REST
 				else
 					read, write = true, true
 					uclass.send :attr_reader, name
-					# TODO find out why this works but not the one below
-#					uclass.instance_eval <<-END
-#						def #{name}=(value)
-#							value = case :#{type}
-#								when :int then value.to_i
-#								else value
-#							end
-#							@#{name} = value
-#						end
-#					END
 #					XXX the below gave 'can't intern tainted string'
 #					raise 'foo'
 					uclass.send :define_method, "#{name}=" do |value|

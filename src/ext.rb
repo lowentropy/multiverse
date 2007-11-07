@@ -115,7 +115,7 @@ class Regexp
 
 	# replace instances of {uid} with the uid regex
 	def replace_uids
-		/#{source.gsub(/\{uid\}/,uid_format)}/
+		/#{source.gsub(/\(uid\)/,"(#{uid_format})")}/
 	end
 
 	# like match, but returns nil unless the matching text

@@ -21,15 +21,15 @@ module REST
 
 		# default non-REST action
 		def default_new
-			@pattern.attributes.each do |attr|
+			attrs = @pattern.instance_variable_get :@attributes
+			attrs.each do |attr|
 				eval "@#{attr} = params[attr]"
 			end
 		end
 
-		def do_new
-			inst = clone
-			inst.instance_exec &inst.new_handler
-			inst
+		def new
+			instance_exec &new_handler
+			self
 		end
 
 		# default REST action
@@ -82,7 +82,7 @@ module REST
 			create_instance(block)
 		end
 
-		def new(*parts)
+		def from_path(*parts)
 			inst = @instance.clone
 			@parts.each_with_index do |part,i|
 				inst.instance_variable_set "@#{part}", parts[i]
@@ -136,6 +136,10 @@ module REST
 			@update = [@visibility, block]
 		end
 
+		def new(&block)
+			@new = [@visibility, block]
+		end
+
 		# method definer
 		def delete(&block)
 			@delete = [@visibility, block]
@@ -153,6 +157,7 @@ module REST
 					return klass.handle(instance, new_instance, path, index+1)
 				end
 			end
+			nil
 		end
 
 	end

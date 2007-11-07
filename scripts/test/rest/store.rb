@@ -27,7 +27,7 @@ end
 
 store(/bar/) do
 	entity(/(.+)/, BarEntity) { path :x }
-	find {|x| entity.new x }
+	find {|x| entity.from_path x }
 end
 
 class Baz
@@ -44,7 +44,7 @@ end
 
 store(/baz/,Baz) do
 	entity(/(.+)/,BazEntity) { path :x }
-	find {|x| entity.new x}
+	find {|x| entity.from_path x}
 end
 
 map_rest

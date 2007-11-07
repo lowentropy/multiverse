@@ -13,6 +13,7 @@ module REST
 		def [](sub)
 			"#{uri}/#{sub}".to_rest
 		end
+		alias :index :get
 	end
 
 	# functionality of server-side store instances
@@ -77,7 +78,9 @@ module REST
 			item = entity.instance(self, entity_path, true)
 			return if $env.replied?
 			reply(:code => 405, :body => "can't gen!") and return unless item
-			add ? instance_exec(item,&add_handler) : item.put
+			return item.put unless add
+			item.new
+			instance_exec item, &add_handler
 		end
 
 	end
@@ -112,13 +115,10 @@ module REST
 		end
 
 		# declare a dynamic or static entity inside this store
-		def entity(regex_or_name, klass=nil, &block)
-			if regex.is_a? Regexp
-				raise "only one regex entity declaration allowed" if @entity
-				@entity = [@visibility, Entity.new(klass, regex_or_name, &block)]
-			else
-				@entities << [@visibility, Entity.new(klass, eval("/#{regex_or_name}/"), &block)]
-			end
+		# TODO: redoc
+		def entity(regex, klass=nil, &block)
+			@entities << @entity if @entity
+			@entity = [@visibility, Entity.new(klass, regex, &block)]
 		end
 
 		# routers
@@ -135,18 +135,29 @@ module REST
 			'store'
 		end
 
-		%w(entity behavior).each do |pattern|
-			define_method "route_to_#{pattern}" do |parent,instance,path,index|
-				collection = instance_variable_get "@#{pattern.pluralize}"
-				collection.each do |sub|
-					vis, klass = *sub
-					if sub.regex.match_all? path[index]
-						assert_visibility vis
-						return klass.handle(instance, klass.instance(instance, path[index]), path, index+1)
-					end
-				end
-				false
+		def route_to_entity(parent, instance, path, index)
+			@entities.each do |entity|
+				vis, klass = *entity
+				inst = route_to_sub(vis, klass, parent, instance, path, index)
+				return inst if inst
 			end
+			nil
+		end
+
+		def route_to_behavior(parent, instance, path, index)
+			@behaviors.each do |behv|
+				vis, klass = *behv
+				inst = route_to_sub(vis, klass, parent, instance, path, index)
+				return inst if inst
+			end
+			nil
+		end
+
+		def route_to_sub(vis, klass, parent, instance, path, index)
+			return nil unless klass.regex.match_all? path[index]
+			assert_visibility vis
+			inst = klass.instance(instance, path[index])
+			klass.handle(instance, inst, path, index+1)
 		end
 
 		# dynamic routing
@@ -166,7 +177,7 @@ module REST
 					return nil
 				end
 				set_parent_and_path(item, instance, path[index])
-				return(@entity[1].handle instance, item, path, index+1)
+				return @entity[1].handle(instance, item, path, index+1)
 			end
 			nil
 		end
