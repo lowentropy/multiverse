@@ -31,20 +31,6 @@ module REST
 			@instance = BehaviorInstance.new # @model.new
 			@instance.instance_variable_set :@pattern, self
 		end
-
-		def type
-			'behavior'
-		end
-
-		# structural stuff
-		def route(*args)
-			nil
-		end
-		
-		# REST responders
-		def post(parent, path, body, params)
-			run_handler parent, :path => path, :params => params, &@block
-		end
 	end
 	
 end

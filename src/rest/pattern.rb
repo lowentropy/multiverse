@@ -137,6 +137,10 @@ module REST
 			map
 		end
 
+		def type
+			self.class.name.split(':')[-1].downcase
+		end
+
 		# define builtin attributes of the pattern
     def attributes(*attrs)
       attrs.each do |attribute|

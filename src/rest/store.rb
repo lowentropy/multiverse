@@ -129,11 +129,6 @@ module REST
 			route_to_dynamic parent, instance, path, index
 		end
 
-		# type of pattern we are
-		def type
-			'store'
-		end
-
 		def route_to_entity(parent, instance, path, index)
 			@entities.each do |entity|
 				vis, klass = *entity

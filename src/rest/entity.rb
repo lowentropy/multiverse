@@ -96,11 +96,6 @@ module REST
 			end
 		end
 
-		# type of pattern we are
-		def type
-			'entity'
-		end
-
 		# sub-pattern declaration
 		def behavior(regex, &block)
 			@behaviors << [@visibility, Behavior.new(regex, &block)]
