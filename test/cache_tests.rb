@@ -26,15 +26,15 @@ class CacheTests < Test::Unit::TestCase
 	rescue Mongrel::StopServer => e
 	end
 
-	def assert_404(&block)
+	def assert_code(code, &block)
 		ok = false
 		begin
 			val = yield
 		rescue REST::RestError => e
-			assert_equal 404, e.code
+			assert_equal code, e.code
 			ok = true
 		end
-		assert ok, "got #{val} instead of 404"
+		assert ok, "got #{val} instead of #{code}"
 	end
 
 	def test_should_index_empty_cache
@@ -45,7 +45,7 @@ class CacheTests < Test::Unit::TestCase
 	def test_should_add_and_get_and_delete_item
 		uid = UID.random
 		item = @cache[uid]
-		assert_404 { item.get }
+		assert_code(404) { item.get }
 		item.put '', :data => 'foo'
 		assert_equal '1', @cache.size.get
 		assert_equal uid.to_s, @cache.index
@@ -53,7 +53,33 @@ class CacheTests < Test::Unit::TestCase
 		item.delete
 		assert_equal '0', @cache.size.get
 		assert_equal '', @cache.index
-		assert_404 { item.get }
+		assert_code(404) { item.get }
+	end
+
+	def test_should_allow_update_by_nobody
+		item = @cache[UID.random]
+		item.put '', :data => 'foo'
+		assert_equal 'foo', item.get
+		item.put '', :data => 'bar'
+		assert_equal 'bar', item.get
+	end
+
+	def test_should_allow_update_by_owner
+		item = @cache[UID.random]
+		item.put '', :data => 'foo'
+		assert_equal 'foo', item.get
+		item.put '', :data => 'bar', :owner => 'bob'
+		assert_equal 'bar', item.get
+		item.put '', :data => 'baz', :owner => 'bob'
+		assert_equal 'baz', item.get
+	end
+
+	def test_should_not_allow_upate_by_non_owner
+		item = @cache[UID.random]
+		item.put '', :data => 'foo', :owner => 'bob'
+		assert_equal 'foo', item.get
+		assert_code(401) { item.put '', :data => 'baz', :owner => 'ted' }
+		assert_equal 'foo', item.get
 	end
 
 end
