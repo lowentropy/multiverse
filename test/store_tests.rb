@@ -37,4 +37,35 @@ class StoreTests < Test::Unit::TestCase
 		assert_equal 'abc-123', entity.get
 	end
 
+	def test_automatic_entity
+		@server.load :host, {}, "scripts/test/rest/store.rb"
+		@server.start
+		assert_equal 'blah', '/bar'.to_store['blah'].get
+	end
+
+	def test_auto_with_builtins_and_parent
+		@server.load :host, {}, "scripts/test/rest/store.rb"
+		@server.start
+		assert_equal 'baz:quux', '/baz/quux'.to_rest.get
+	end
+
+	def test_non_matching_entity
+		@server.load :host, {}, "scripts/test/rest/store.rb"
+		@server.start
+		assert_raise(REST::RestError) do
+			'/foo/foo'.to_rest.get
+		end
+	end
+
+	def test_add_and_delete
+		@server.load :host, {}, "scripts/test/rest/store.rb"
+		@server.start
+		e = '/foo'.to_store['abc-123']
+		assert_raise(REST::RestError) { e.get }
+		assert_nothing_raised { e.put }
+		assert_equal 'abc-123', e.get
+		assert_nothing_raised { e.delete }
+		assert_raise(REST::RestError) { e.get }
+	end
+
 end

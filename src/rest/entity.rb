@@ -44,7 +44,7 @@ module REST
 
 		# default REST action
 		def default_delete
-			reply :code => 405
+			@parent.delete(self)
 		end
 
 		# REST responder
@@ -80,6 +80,14 @@ module REST
 			@behaviors = []
 			@stores = []
 			create_instance(block)
+		end
+
+		def new(*parts)
+			inst = @instance.clone
+			@parts.each_with_index do |part,i|
+				inst.instance_variable_set "@#{part}", parts[i]
+			end
+			inst
 		end
 
 		%w(show update delete new).each do |method|

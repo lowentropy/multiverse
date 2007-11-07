@@ -19,7 +19,7 @@ module REST
 	module StoreInstance
 		extend PatternInstance
 
-		adapters %w(index find add)
+		adapters %w(index find add delete)
 
 		def default_index
 			reply :code => 405
@@ -30,10 +30,26 @@ module REST
 			nil
 		end
 
+		def default_delete(entity)
+			reply :code => 405
+		end
+
+		def entity
+			@pattern.instance_variable_get(:@entity)[1]
+		end
+
+		def find(*parts)
+			instance_exec *parts, &find_handler
+		end
+
+		def delete(entity)
+			instance_exec entity, &delete_handler
+		end
+
 		def do_find(match)
 			entity = @pattern.instance_variable_get(:@entity)[1]
 			args = match[1, entity.parts.size]
-			instance_exec *args, &find_handler
+			find *args
 		end
 
 		# due to the coding of post, this stub should never be called
@@ -43,6 +59,7 @@ module REST
 		def get
 			value = instance_exec(&index_handler)
 			reply :body => value unless $env.replied?
+			value
 		end
 
 		# POSTing to a store has many possible behaviors. In order of
@@ -83,7 +100,7 @@ module REST
 			create_instance(block)
 		end
 
-		%w(index find add).each do |method|
+		%w(index find add delete).each do |method|
 			define_method "#{method}_handler" do
 				eval "@#{method}"
 			end
@@ -168,6 +185,11 @@ module REST
 		# define the method to add a member
 		def add(&block)
 			@add = [@visibility, block]
+		end
+
+		# define the method to delete a member
+		def delete(&block)
+			@delete = [@visibility, block]
 		end
 
 		# TODO: if a DELETE is called on a direct sub-entity of a store,
