@@ -11,7 +11,7 @@ module REST
 	class BehaviorInstance
 		include PatternInstance
 		def post
-			reply :body => instance_exec(&@pattern.block)
+			reply :body => @pattern.render(instance_exec(&@pattern.block))
 		end
 	end
 

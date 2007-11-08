@@ -22,7 +22,7 @@ store(/foo/,GenericStore) do
 end
 
 class BarEntity
-	def render; x; end
+	def render; x.to_yaml; end
 end
 
 store(/bar/) do
@@ -38,7 +38,7 @@ end
 
 class BazEntity
 	def render
-		"#{@parent.baz}:#{x}"
+		"#{@parent.baz}:#{x}".to_yaml
 	end
 end
 

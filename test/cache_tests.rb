@@ -38,8 +38,8 @@ class CacheTests < Test::Unit::TestCase
 	end
 
 	def test_should_index_empty_cache
-		assert_equal '', @cache.index
-		assert_equal '0', @cache.size.get
+		assert_equal [], @cache.index
+		assert_equal 0, @cache.size.get
 	end
 
 	def test_should_add_and_get_and_delete_item
@@ -47,12 +47,12 @@ class CacheTests < Test::Unit::TestCase
 		item = @cache[uid]
 		assert_code(404) { item.get }
 		item.put '', :data => 'foo'
-		assert_equal '1', @cache.size.get
-		assert_equal uid.to_s, @cache.index
+		assert_equal 1, @cache.size.get
+		assert_equal [uid.to_s], @cache.index
 		assert_equal 'foo', item.get
 		item.delete
-		assert_equal '0', @cache.size.get
-		assert_equal '', @cache.index
+		assert_equal 0, @cache.size.get
+		assert_equal [], @cache.index
 		assert_code(404) { item.get }
 	end
 

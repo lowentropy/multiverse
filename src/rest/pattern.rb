@@ -46,8 +46,10 @@ module REST
 				@map[attr] = send attr
 			end
 			parts = @map.to_yaml.split(/\n/)
-			parts[0] = "--- #{@pattern.type}:#{@uri}"
+			#parts[0] = "--- mv,2007/rest/#{@pattern.type}:#{@uri}"
+			parts[0].sub '{}', "mv,2007/rest/#{@pattern.type}:#{@uri}"
 			parts.join "\n"
+			# XXX to_yaml
 		end
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)
@@ -135,6 +137,12 @@ module REST
 			map
 		end
 
+		def render(value)
+			return value.render if value.respond_to? :render
+			return value if value.is_a?(String) && value[0,4] == '--- '
+			value.to_yaml
+		end
+
 		def type
 			self.class.name.split(':')[-1].downcase
 		end
@@ -152,7 +160,7 @@ module REST
       end
     end
 
-		%w(int string).each do |type|
+		%w(int string float).each do |type|
 			define_method type do |*attrs|
 				hash = {}
 				attrs.each do |a|
@@ -183,6 +191,7 @@ module REST
 					uclass.send :define_method, "#{name}=" do |value|
 						value = case type
 							when :int then value.to_i
+							when :float then value.to_f
 							else value
 						end
 						eval "@#{name} = value"
@@ -257,9 +266,7 @@ module REST
     def run_handler(instance, *globals, &block)
       Thread.new(instance, block, globals) do |instance,block,globals|
         globals.each {|name,value| $env[name] = value}
-        value = instance ? instance.instance_exec(&block) : block.call
-        value.render if value && value.respond_to?(:render)
-				# TODO: not for DELETE, others?
+        instance ? instance.instance_exec(&block) : block.call
       end.join
     end
 

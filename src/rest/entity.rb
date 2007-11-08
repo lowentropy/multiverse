@@ -32,7 +32,7 @@ module REST
 
 		# default REST action
 		def default_show
-			render
+			self
 		end
 
 		# default REST action
@@ -47,7 +47,7 @@ module REST
 
 		# REST responder
 		def get
-			value = instance_exec &show_handler
+			value = @pattern.render(instance_exec(&show_handler))
 			reply :body => value unless $env.replied?
 		end
 

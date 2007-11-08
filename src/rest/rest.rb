@@ -10,7 +10,7 @@ module REST
 		def get
 			code, body = $env.get @uri.to_s, '', {}
 			raise RestError.new(code, body) if code != 200
-			body
+			YAML.load body
 		end
 		def put(body='', params={})
 			code, body = $env.put @uri.to_s, body, params
@@ -20,7 +20,7 @@ module REST
 		def post(body='', params={})
 			code, body = $env.post @uri.to_s, body, params
 			raise RestError.new(code, body) if code != 200
-			body
+			YAML.load body
 		end
 		def delete
 			code, body = $env.delete @uri.to_s, '', {}

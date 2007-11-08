@@ -37,7 +37,7 @@ module REST
 		end
 
 		def find(*parts)
-			instance_exec *parts, &find_handler
+			instance_exec(*parts, &find_handler)
 		end
 
 		def delete(entity)
@@ -55,9 +55,8 @@ module REST
 		# end
 
 		def get
-			value = instance_exec(&index_handler)
+			value = @pattern.render(instance_exec(&index_handler))
 			reply :body => value unless $env.replied?
-			value
 		end
 
 		# POSTing to a store has many possible behaviors. In order of

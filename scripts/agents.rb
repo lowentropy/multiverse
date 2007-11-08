@@ -17,7 +17,6 @@ store(/agents/,Agents) do
 	entity(/(.+)/,Agent) do
 		path :name
 		new { from_yaml body }
-		get { render }
 	end
 	# TODO: behavior should run on code of parent
 end

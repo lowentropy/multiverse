@@ -3,6 +3,7 @@ $: << File.dirname(__FILE__)
 require 'net/http'
 require 'uri'
 require 'untrace'
+require 'yaml'
 
 # Extensions to object to include instance_exec
 class Object
@@ -47,6 +48,7 @@ class Object
 			eval "#{n} = obj.instance_variable_get :#{n}"
 		end
 	end
+
 end
 
 # This code is to prevent DOS attacks by hiding some

@@ -35,7 +35,7 @@ class AgentTests < Test::Unit::TestCase
 		@server.start
 		foo = '/agents/foo'.to_entity
 		foo.put @agent.to_yaml
-		assert_equal @agent.to_yaml, foo.get
+		assert_equal @agent.to_yaml, foo.get.to_yaml
 	end
 
 end

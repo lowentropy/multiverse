@@ -39,7 +39,7 @@ class EntityTests < Test::Unit::TestCase
 
 		%w(a b c).each do |attribute|
 			field = foo.send attribute
-			field.set '216'
+			field.set 216
 			assert_equal '216', field.get
 		end
 	end	
@@ -53,9 +53,7 @@ class EntityTests < Test::Unit::TestCase
 		foo.b.set 2
 		foo.c.set 3
 
-		sets = %w(:a:\ "1" :b:\ "2" :c:\ "3").permute
-		assert sets.include?(foo.get.split(/\n/)[1..-1]),
-			"invalid: #{foo.get.inspect}"
+		assert_equal({:a => '1', :b => '2', :c => '3'}, foo.get)
 	end
 
 	def test_active_entity
@@ -66,7 +64,7 @@ class EntityTests < Test::Unit::TestCase
 		foo.a.set 3
 		foo.b.set 7
 
-		assert_equal '21', foo.c.get
+		assert_equal 21, foo.c.get
 	end
 
 	def test_dynamic_entity_name
