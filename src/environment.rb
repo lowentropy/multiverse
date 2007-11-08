@@ -6,6 +6,7 @@ require 'pipe'
 require 'host'
 require 'untrace'
 require 'rest/rest'
+require 'agent'
 require 'uri'
 require 'ext'
 
@@ -18,8 +19,6 @@ require 'ext'
 # TODO group functions in some sane way
 # TODO export function sets to mixins
 class Environment
-
-	include Untrace
 
 	attr_accessor :name, :sandbox_check
 	attr_reader :local_set

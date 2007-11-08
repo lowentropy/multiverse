@@ -1,8 +1,13 @@
+$: << File.dirname(__FILE__)
+
 require 'net/http'
 require 'uri'
+require 'untrace'
 
 # Extensions to object to include instance_exec
 class Object
+	
+	include Untrace
 
 	@@define_iec = proc do |block|
 		begin
@@ -28,10 +33,19 @@ class Object
 	# this works by dynamically creating methods on the
 	# helper module (which is included in the object).
   def instance_exec(*args, &block)
-		name = @@define_iec.call block
-		value = send(name, *args)
-		@@undefine_iec.call name
-		value
+		untraced(3) do
+			name = @@define_iec.call block
+			value = send(name, *args)
+			@@undefine_iec.call name
+			value
+		end
+	end
+
+	def from_yaml(yaml)
+		obj = YAML.load(yaml)
+		to_yaml_properties.each do |n|
+			eval "#{n} = obj.instance_variable_get :#{n}"
+		end
 	end
 end
 

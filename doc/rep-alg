@@ -1,0 +1,5 @@
+W = {(cr_i(q),cf_i(q),a_i,f_i), i=1..w}
+s = sum f_i
+cr_norm_i(q) = cr_i(q)*(1 - ((s-f)/s)**s)
+cf_norm_i(q) = cf_i(q)*...
+trust?(r,f,rn,fn) = (rn*fn <= r*f*(.5 + 4/sqrt(r*f))**2)

@@ -1,5 +1,3 @@
-$: << File.expand_path(File.dirname(__FILE__))
-
 module REST
 	class Adapter
 	  attr_reader :uri
@@ -38,10 +36,10 @@ module REST
 end
 
 require 'ext'
-require 'pattern'
-require 'store'
-require 'entity'
-require 'behavior'
+require 'rest/pattern'
+require 'rest/store'
+require 'rest/entity'
+require 'rest/behavior'
 
 
 # RESTful extensions

@@ -1,8 +1,6 @@
-$: << File.expand_path(File.dirname(__FILE__))
-
-require 'rest'
-require 'pattern'
-require 'behavior'
+require 'rest/rest'
+require 'rest/pattern'
+require 'rest/behavior'
 
 module REST
 

@@ -1,5 +1,3 @@
-$: << File.expand_path(File.dirname(__FILE__))
-
 require 'yaml'
 
 # Extensions to hash to perform recursive merging.

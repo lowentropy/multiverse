@@ -81,5 +81,13 @@ class CacheTests < Test::Unit::TestCase
 		assert_code(401) { item.put '', :data => 'baz', :owner => 'ted' }
 		assert_equal 'foo', item.get
 	end
+	
+	def test_should_get_uid_of_cache_item
+		uid = UID.random
+		item = @cache[uid]
+		item.put
+		assert_equal uid, item.uid.get
+		assert_code(404) { @cache[UID.random].uid.get }
+	end
 
 end

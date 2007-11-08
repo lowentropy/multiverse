@@ -24,7 +24,7 @@ class StoreTests < Test::Unit::TestCase
 	end
 
 	def test_should_load_store
-		@server.load :host, {}, "scripts/test/rest/store.rb"
+		@server.load :agents, {}, "scripts/test/rest/store.rb"
 		@server.start
 		'/foo'.to_store.post '', :name => 'foo', :number => 216
 	end

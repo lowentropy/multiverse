@@ -1,7 +1,5 @@
-$: << File.expand_path(File.dirname(__FILE__))
-
-require 'rest'
-require 'pattern'
+require 'rest/rest'
+require 'rest/pattern'
 
 # RESTful service API. See scripts/*.rb for examples
 module REST

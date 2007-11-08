@@ -1,5 +1,3 @@
-$: << File.expand_path(File.dirname(__FILE__))
-
 module REST
 
 	class Attribute
@@ -42,15 +40,15 @@ module REST
 		end
 		# TODO: render @map with requested media type or extension
 		# for now, rendering as yaml FIXME incorrect yaml? no obj type/name?
-    def render
-      @map = {}
-      attributes.each do |attr|
-        @map[attr] = send attr
-      end
+		def render
+			@map = {}
+			attributes.each do |attr|
+				@map[attr] = send attr
+			end
 			parts = @map.to_yaml.split(/\n/)
 			parts[0] = "--- #{@pattern.type}:#{@uri}"
 			parts.join "\n"
-    end
+		end
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)
 			@pattern.parse(path).each do |part,value|
@@ -237,9 +235,10 @@ module REST
 			@instance.instance_variable_set :@pattern, self
 			[PatternInstance, pattern, @model].each do |mod|
 				mod = mod.clone
-				if @instance.respond_to?(:render) &&
-						mod.instance_methods.include?('render')
-					mod.send :remove_method, :render
+				%w(render).each do |fun|
+					next unless @instance.respond_to? fun
+					next unless mod.instance_methods.include? fun
+					mod.send :remove_method, fun
 				end
 				@instance.extend mod
 			end
