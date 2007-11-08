@@ -38,6 +38,7 @@ class Environment
 		@functions = {}.taint
 		@start = false
 		@required = [].taint
+		@agents = {}.taint
 		@states = [].taint
 		@outbox = [].taint
 		@url_patterns = {}.taint
@@ -106,7 +107,7 @@ class Environment
 				require k goto klass quit replied?
 				state function fun reply pass err
 				private public params log dbg
-				entity behavior store listen
+				entity behavior store listen agent
 				get put post delete).each do |cmd|
 			@sandbox.delegate cmd.to_sym, self
 		end
@@ -720,6 +721,11 @@ class Environment
 	def pass
 		must_call_from_sandbox!
 		Thread.pass
+	end
+
+	# create an agent
+	def agent(name, &block)
+		@agents[name] = Agent.new(name,&block)
 	end
   
 	# issue a GET request

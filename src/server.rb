@@ -8,6 +8,7 @@ require 'mongrel'
 require 'socket'
 require 'config'
 require 'debug'
+require 'agent'
 require 'host'
 require 'uri'
 require 'ext'
@@ -290,6 +291,11 @@ class Server < Mongrel::HttpHandler
 		start_pipe_thread name, pipe
 	end
 
+	# load a software agent
+	def load_agent(agent)
+		@log.info "got request to load agent: #{agent.to_yaml}"
+	end
+
 	# start a handler thread for the given message pipe
 	def start_pipe_thread(name, pipe)
 		@pipe_threads << Thread.new(self, name, pipe) do |server,name,pipe|
@@ -309,6 +315,10 @@ class Server < Mongrel::HttpHandler
 			msg[:error] = "#{msg.command.to_s.gsub(/_/,' ')}: #{msg[:path]}"
 			@log.debug "#{msg[:error]} #{msg.params.inspect}"
 			@env_replies << msg
+
+		# load a software agent
+		when :load_agent
+			load_agent YAML.load(msg[:agent])
 
 		# 404 error response from environment
 		when :not_found
@@ -344,6 +354,9 @@ class Server < Mongrel::HttpHandler
 		end
 
 		nil
+	rescue Exception => e
+		@log.fatal e
+		fail
 	end
 
 	# remove the env from active status

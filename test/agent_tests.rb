@@ -38,4 +38,9 @@ class AgentTests < Test::Unit::TestCase
 		assert_equal @agent.to_yaml, foo.get.to_yaml
 	end
 
+	def test_load_agent_from_script
+		@server.load :test, {}, 'scripts/test/agent.rb'
+		@server.start
+	end
+
 end

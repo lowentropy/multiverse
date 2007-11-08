@@ -44,6 +44,12 @@ class Agent
 	def to_yaml_properties
 		%w(@name @uid @version @libs @code)
 	end
+	def to_message
+		[:load_agent, nil, nil, {:agent => to_yaml}]
+	end
+	def activate
+		$env << to_message
+	end
 	YAML.add_domain_type('216brew.com,2007','mv/agent') do |type,val|
 		YAML.object_maker Agent, val
 	end
