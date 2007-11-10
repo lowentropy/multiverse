@@ -1,17 +1,24 @@
-map(/grid/) do
+map(:grid) do
 	fun :find do |uid|
-		begin
-			reply :body => @cache[uid].get
-		rescue RestError => e
-			e.code = 301 if e.code == 404
-			e.reply
+		if (item = @cache.find uid)
+			reply :body => item.render
+		else
+			reply :code => 301
 		end
 	end
-	fun :add do |uid,body,params|
-		@cache[uid].put body, params
+	fun :add do |uid|
+		# NOTE: body and params should get cloned from pgrid
+		item = @cache.entity.from_path uid
+		item.new
+		@cache.add item
 	end
 	fun :delete do |uid|
-		@cache[uid].delete
+		item = @cache.find uid
+		if item
+			@cache.delete item
+		else
+			reply :code => 404
+		end
 	end
 end
 
