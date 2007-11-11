@@ -1,5 +1,5 @@
 require 'test/unit'
-require 'ext'
+require 'src/ext'
 
 class InstanceExecTests < Test::Unit::TestCase
 

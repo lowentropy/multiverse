@@ -61,20 +61,24 @@ class Server < Mongrel::HttpHandler
 			@log.debug "created env #{env}"
 		end
 		scripts.each do |script|
-			@log.debug "attempting to load #{script}"
-			load_msg = Message.system(:load, :file => script)
-			send_to_pipe @pipes[env], load_msg
-			reply = wait_for_reply_to load_msg
-			@log.debug "loaded #{script}"
-			raise reply[:error] if reply[:error]
+			load_script_into env, script
 		end
 	end
 
+	# load a script into an environment
+	def load_script_into(env, script, text=nil)
+		@log.debug "attempting to load #{script}"
+		load_msg = Message.system(:load, :file => script, :text => text)
+		send_to_pipe @pipes[env], load_msg
+		reply = wait_for_reply_to load_msg
+		@log.debug "loaded #{script}"
+		raise reply[:error] if reply[:error]
+	end
+
 	# start the server; also trap user interrupts.
-	def start(pad=true)
+	def start(pad=true, external=nil)
 		sleep 0.5 if pad
 		@shutdown = false
-		@pipes.values.each {|pipe| send_to_pipe pipe, Message.system(:start)}
 		@http = Mongrel::HttpServer.new '0.0.0.0', config['port'].to_s
 		@http.register "/", self
 		@thread = @http.run
@@ -83,7 +87,17 @@ class Server < Mongrel::HttpHandler
 			shutdown
 			join 0.5
 		end
+		@started = true
+		@pipes.each do |env,pipe|
+			@log.info "starting environment #{env}"
+			send_to_pipe pipe, Message.system(:start)
+		end
 		sleep 0.5 if pad
+		if external || @environments[:host]
+			env = @environments[external || :host]
+			raise "no external environment to load: #{external}" unless env
+			env.externalize_sandbox
+		end
 	end
 
 	# shut down the server
@@ -114,6 +128,7 @@ class Server < Mongrel::HttpHandler
 		@log.debug "waiting for main thread..."
 		@thread.join timeout if @thread
 		@log.debug "main thread done."
+		@started = false
 	end
 
 	# issue an external GET request
@@ -141,6 +156,7 @@ class Server < Mongrel::HttpHandler
 	# TODO add a public wrapper that checks the caller
 	def process(request, response)
 		debug 'server.process' do
+			@log.debug "processing #{request}"
 			begin
 				code, body = handle request
 			rescue Exception => e
@@ -293,7 +309,28 @@ class Server < Mongrel::HttpHandler
 
 	# load a software agent
 	def load_agent(agent)
-		@log.info "got request to load agent: #{agent.to_yaml}"
+		@log.info "loading agent: #{agent.name}"
+		env = agent.name.to_sym
+		create env, :mode => :net
+		[agent.libs, agent.code].each do |map|
+			map.each do |file,code|
+				load_script_into env, file, code
+			end
+		end
+		@log.info "loaded agent: #{agent.name}"
+		if @started
+			send_to_pipe @pipes[env], Message.system(:start) 
+			@log.info "started agent: #{agent.name}"
+		end
+		test env
+	end
+
+	# make sure an environment is alive
+	def test(env)
+		msg = Message.system(:ping)
+		send_to_pipe @pipes[env], msg
+		wait_for_reply_to msg
+		@log.info "#{env}: ping!"
 	end
 
 	# start a handler thread for the given message pipe
@@ -318,7 +355,11 @@ class Server < Mongrel::HttpHandler
 
 		# load a software agent
 		when :load_agent
-			load_agent YAML.load(msg[:agent])
+			agent = YAML.load(msg[:agent])
+			load_agent agent
+			return Message.new(:reply, msg.host, msg.url,
+				{	:message_id => msg[:message_id],
+					:environment => agent.name.to_sym})
 
 		# 404 error response from environment
 		when :not_found
@@ -334,7 +375,7 @@ class Server < Mongrel::HttpHandler
 			return Message.new(:reply, msg.host, msg.url, {:code => code, :body => body, :message_id => msg[:message_id]})
 
 		# replies are handled by another thread
-		when :reply, :loaded
+		when :reply, :loaded, :pong
 			@env_replies << msg
 
 		# script url map command
@@ -477,7 +518,9 @@ class Server < Mongrel::HttpHandler
 						return reply
 					end
 				end
-				Thread.pass
+				sleep 0.05
+				$stderr.putc '.'
+				$stderr.flush
 			end
 		rescue Exception => e
 			return {:code => 500, :body => "unexpected error: #{e}"}

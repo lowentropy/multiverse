@@ -121,12 +121,12 @@ class MemoryPipe < MessagePipe
 	# if debugging is on, prints a message when it is received
 	def dbg_read(msg)
 		return unless @debug
-		puts "READ #{msg.command}: #{msg.id}" if msg.respond_to? :command
+		$stderr.puts "READ #{msg.command}: #{msg.id}" if msg.respond_to? :command
 	end
 	# if debugging is on, prints a message when it is sent
 	def dbg_wrote(msg)
 		return unless @debug
-		puts "WROTE #{msg.command}: #{msg.id}" if msg.respond_to? :command
+		$stderr.puts "WROTE #{msg.command}: #{msg.id}" if msg.respond_to? :command
 	end
 	# read a message from the input buffer. will block until a
 	# message is available. returns an eof exception if the pipe

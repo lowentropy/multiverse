@@ -61,6 +61,9 @@ class Environment
 
 	# accessor for thread-local storage
 	def []=(name, value)
+		if name.to_s == 'sandbox_id' and $SAFE > 0
+			raise "can't swap sandboxes" 
+		end
 		@local_set.call name => value
 	end
 
@@ -89,6 +92,12 @@ class Environment
 		@pipe = type.constantize.new input, output
 	end
 
+	# let threads outside the default sandbox access our functions
+	# through $env.
+	def externalize_sandbox
+		@sandbox.chooser
+	end
+
 	private
 
 	# start IO processing threads
@@ -103,10 +112,10 @@ class Environment
 
 	# add script-accessible (unsafe) functions
 	def add_script_commands
-		%w(	map current_state req <<
+		%w(	map current_state req << [] []=
 				require k goto klass quit replied?
 				state function fun reply pass err
-				private public params log dbg
+				private public params log dbg exit?
 				entity behavior store listen agent
 				get put post delete).each do |cmd|
 			@sandbox.delegate cmd.to_sym, self
@@ -117,17 +126,16 @@ class Environment
 	def add_script_variables
 		%w(outbox classes functions required local_set
 		   states state).each do |var|
-			eval "@sandbox[:#{var}] = @#{var}"
+			eval "@sandbox.instance_variable_set :@#{var}, @#{var}"
 		end
 	end
 
 	# the given block will have no access to the environment
 	# except what is explicitly given above
 	def sandbox(args={}, &block)
-		@sandbox ||= Sandbox.new
-		args.each {|arg,val| @sandbox[arg] = val}
+		args.each {|arg,val| @sandbox.instance_variable_set "@#{arg}", val}
 		return_value = untraced(1) { @sandbox.sandbox &block }
-		args.each {|arg,val| @sandbox[arg] = nil}
+		args.each {|arg,val| @sandbox.instance_variable_set "@#{arg}", nil}
 		return_value
 	end
 
@@ -151,8 +159,9 @@ class Environment
 				while true
 					sandbox(:script => name, :text => text, :env => self) do
 						error = [].taint
-						Thread.new(@script, @text, error, self) do |script,text,error,box|
-							$env = box
+						Thread.new(@script, @text, error, self) \
+						do |script,text,error,box|
+							$env = box.chooser
 							$SAFE = 0
 							begin
 								box.untraced(0,3) do
@@ -170,7 +179,7 @@ class Environment
 						# bubble real errors
 						unless (error = error[0]).nil?
 							unless error.message == "require"
-								puts format_err($!) if @superfatal
+								$stderr.puts format_err($!) if @superfatal
 								fail error
 							end
 						end
@@ -248,11 +257,10 @@ class Environment
 
 	# main script loop
 	def script_main
-		@sandbox[:main_thread] = Thread.current
 		begin untraced(2,4) do
 			sandbox do
-				$env = self
-				until @exit
+				$env = chooser
+				until $env.exit?
 					$env.start
 					Thread.pass
 				end
@@ -301,7 +309,7 @@ class Environment
 		return if @shutdown
 		@pipe.write Message.system(:quit, :message_id => message_id)
 		@quit_sent = true
-		@sandbox[:exit] = true
+		@exit = true
 		@shutdown = true
 	end
 
@@ -317,6 +325,7 @@ class Environment
 		until shutdown?
 			Thread.pass until @pipe
 			message = @pipe.read
+			$stderr.puts "GOT #{message.command}"
 			if message
 				sync :inbox do
 					@inbox << message
@@ -369,8 +378,10 @@ class Environment
 				shutdown!(message[:message_id])
 				@timeout = message[:timeout] # FIXME: ???
 			when :load then
-				add_script message[:file]
+				add_script message[:file], message[:text]
 				@outbox << [:loaded, nil, nil, message.params]
+			when :ping then
+				@outbox << [:pong, nil, nil, message.params]
 			when :mapped then nil
 			when :reply then handle_reply message
 			# TODO: get source host in action message
@@ -411,7 +422,7 @@ class Environment
 	# call an action on the environment TODO break this function up
 	def action(path, params)
 		Thread.new(self, path, params) do |env,path,params|
-			$env = env.instance_variable_get :@sandbox
+			$env = env.instance_variable_get(:@sandbox).chooser
 			begin
 				env.local_set.call :params => params.stringify!
 				dbg "trying to find handler for #{path}"
@@ -426,7 +437,7 @@ class Environment
 					obj = @sandbox
 				end
 			rescue Exception => e
-				puts format_error(e) if @superfatal
+				$stderr.puts format_error(e) if @superfatal
 				$env.reply :error => format_error(e)
 			end
 			if block
@@ -438,7 +449,7 @@ class Environment
 					end
 					$env.reply unless $env.replied?
 				rescue Exception => e
-					puts format_error(e) if @superfatal
+					$stderr.puts format_error(e) if @superfatal
 					$env.reply :error => format_error(e) unless $env.replied?
 				end
 			else
@@ -519,10 +530,11 @@ class Environment
 		end
 
 		@pipe.write msg
+		$stderr.puts "PUT #{msg.command}"
 
 		begin
 			# FIXME: sync/async should be an arg of the message maybe?
-			if [:get, :post, :put, :delete].include? command
+			if [:get, :post, :put, :delete, :load_agent].include? command
 				wait_for_reply_to msg, result, done
 			end
 		rescue Exception => e
@@ -753,6 +765,11 @@ class Environment
     handle_request :delete, url, body, params
   end
 
+	# is the script env done?
+	def exit?
+		@exit
+	end
+
 	# reply to a GET or POST
 	def reply(params = {})
 		must_call_from_sandbox!
@@ -775,8 +792,10 @@ class Environment
 
 	# send an error message
 	def err(msg, message_id=nil)
-		puts "FATAL XXX: #{msg}" if @superfatal
-		@outbox << [:error, nil, nil, {:message => msg, :message_id => message_id}]
+		$stderr.puts "FATAL XXX: #{msg}" if @superfatal
+		@outbox << [:error, nil, nil, 
+			{	:message => msg, :level => :error,
+				:message_id => message_id}]
 	end
 
 end

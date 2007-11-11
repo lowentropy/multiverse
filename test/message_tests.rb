@@ -1,4 +1,4 @@
-require 'message'
+require 'src/message'
 require 'test/unit'
 
 

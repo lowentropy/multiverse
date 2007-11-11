@@ -1,4 +1,8 @@
-fun(:start) { quit }
+$stderr.puts "loading agents"
+
+fun(:start) do
+	quit
+end
 
 class Agents
 	attr_reader :agents

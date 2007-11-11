@@ -97,6 +97,7 @@ class Message
 			klass = klass.to_sym
 			str, text = next_str text
 			params[key.to_sym] = case klass
+			when :NilClass then nil
 			when :Fixnum then str.to_i
 			when :Float then str.to_f
 			when :Symbol then str.to_sym

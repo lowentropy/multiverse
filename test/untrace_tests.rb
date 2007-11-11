@@ -1,6 +1,6 @@
 require 'test/unit'
-require 'untrace'
-require 'environment'
+require 'src/untrace'
+require 'src/environment'
 
 
 class UntraceTests < Test::Unit::TestCase

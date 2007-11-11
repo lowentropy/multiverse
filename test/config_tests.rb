@@ -1,6 +1,6 @@
 require 'test/unit'
-require 'config'
-require 'ext'
+require 'src/config'
+require 'src/ext'
 
 class ConfigTests < Test::Unit::TestCase
 

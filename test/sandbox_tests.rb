@@ -1,5 +1,5 @@
 require 'test/unit'
-require 'sandbox'
+require 'src/sandbox'
 
 
 class SandboxTests < Test::Unit::TestCase
@@ -47,16 +47,6 @@ class SandboxTests < Test::Unit::TestCase
 		assert_nothing_raised do
 			$stdout.write ''
 		end
-	end
-
-	def test_variable
-		@sandbox['foo'] = 'foo'
-		@sandbox['bar'] = (bar = [])
-		@sandbox.sandbox do
-			@bar << @foo
-		end
-		
-		assert_equal 'foo', bar[0]
 	end
 
 	def test_function

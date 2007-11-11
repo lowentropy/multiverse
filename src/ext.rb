@@ -51,6 +51,12 @@ class Object
 
 end
 
+class Fixnum
+	def to_hex
+		"%x" % [self]
+	end
+end
+
 # This code is to prevent DOS attacks by hiding some
 # builtin methods of Ruby's Thread class,
 # critical= and abort_on_exception=.

@@ -26,7 +26,7 @@ class Agent
 			map
 		end
 	end
-	attr_reader :name, :uid, :version
+	attr_reader :name, :uid, :version, :libs, :code
 	def initialize(name=nil, &block)
 		@name = name
 		@libs = {}
@@ -45,10 +45,21 @@ class Agent
 		%w(@name @uid @version @libs @code)
 	end
 	def to_message
-		[:load_agent, nil, nil, {:agent => to_yaml}]
+		[:load_agent, nil, nil, {:agent => to_yaml}, [], []]
 	end
 	def activate
 		$env << to_message
+	end
+	def activate!
+		message = to_message
+		$env << message
+		begin
+			Thread.pass while message[-2].empty?
+		rescue Exception => e
+			puts e
+			puts e.backtrace
+			fail
+		end
 	end
 	YAML.add_domain_type('216brew.com,2007','mv/agent') do |type,val|
 		YAML.object_maker Agent, val

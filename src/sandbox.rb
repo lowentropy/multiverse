@@ -21,6 +21,7 @@
 $: << File.dirname(__FILE__)
 
 require 'untrace'
+require 'uid'
 
 # A sandbox object allows code blocks to run in a
 # clean environment; if the blocks have $SAFE = 4,
@@ -31,13 +32,12 @@ class Sandbox
 
 	include Untrace
 
-  attr_reader :_delegates
-  
 	# set up empty environment and taint ourself (wow, that sounds naughty)
 	def initialize
 		@_delegates = {}
 		@_root_delegate = nil
 		self.taint
+		@uid = UID.random
 	end
 
 	# call code within the sandboxed environment
@@ -47,16 +47,6 @@ class Sandbox
 		end
 	end
 
-	# retrieve a sandbox-local variable
-	def [](key)
-		eval "@#{key}"
-	end
-
-	# set a sandbox-local variable
-	def []=(key, value)
-		eval "@#{key} = value"
-	end
-
 	# delegate function calls of a given name to be run
 	# (unprotected!) on the given object. 1) ONLY USE THIS IF
 	# YOU KNOW WHAT YOU ARE DOING. 2) DON'T KID YOURSELF, YOU
@@ -64,14 +54,23 @@ class Sandbox
 	def delegate(name, object)
 		if name
 			@_delegates[name.to_sym] = object
+			@last_delegated = name
 		else
 			@_root_delegate = object
 		end
 	end
 
+	def chooser
+		env = $env || Chooser.new
+		self[:sandbox_id] = @uid
+		env.set_sandbox @uid, self
+		env
+	end
+
 	# rename entries in a stack trace
 	def rename_backtrace(error, name, from="`add_script'")
 		this = error.backtrace.find {|line| /#{from}/ =~ line}
+		return unless this # XXX untraced is probably all fux0red
 		index = error.backtrace.index this
 		error.backtrace[index].gsub! /`.*'/, "`#{name}'"
 	end
@@ -93,4 +92,22 @@ class Sandbox
 		end
 	end
 
+end
+
+class Chooser
+	def initialize
+		@sandboxes = {}
+	end
+	def set_sandbox(uid, box)
+		raise "security violation" if $SAFE > 0
+		@sandboxes[uid] = box
+	end
+	def chosen
+		uid = @sandboxes.values[0][:sandbox_id]
+		raise "no environment loaded" unless uid
+		@sandboxes[uid]
+	end
+	def method_missing(id, *args, &block)
+		chosen.send id.id2name, *args, &block
+	end
 end

@@ -11,6 +11,7 @@ class EnvironmentTests < Test::Unit::TestCase
 		@env.sandbox_check = false
 		@pipe = MemoryPipe.new @in_buf, @out_buf
 		@env.add_script 'default', 'fun(:start) { quit }'
+		@env.externalize_sandbox
 	end
 
 	def test_join

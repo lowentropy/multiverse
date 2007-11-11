@@ -9,7 +9,7 @@ require 'src/rest/rest'
 class AgentTests < Test::Unit::TestCase
 	def setup
 		begin
-			@server = Server.new :log => {:level => :fatal}, 'port' => 4000
+			@server = Server.new :log => {:level => :debug}, 'port' => 4000
 			@host = @server.localhost
 		rescue Exception => e
 			puts e
@@ -38,9 +38,16 @@ class AgentTests < Test::Unit::TestCase
 		assert_equal @agent.to_yaml, foo.get.to_yaml
 	end
 
-	def test_load_agent_from_script
+	def test_load_agents_as_agent_and_add_agent
 		@server.load :test, {}, 'scripts/test/agent.rb'
 		@server.start
+		sleep 10
+		foo = '/agents/foo'.to_entity
+		puts ">>> TEST: AAA"
+		foo.put @agent.to_yaml
+		puts ">>> TEST: BBB"
+		assert_equal @agent.to_yaml, foo.get.to_yaml
+		puts ">>> TEST: CCC"
 	end
 
 end
