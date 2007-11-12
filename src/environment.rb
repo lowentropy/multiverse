@@ -325,7 +325,6 @@ class Environment
 		until shutdown?
 			Thread.pass until @pipe
 			message = @pipe.read
-			$stderr.puts "GOT #{message.command}"
 			if message
 				sync :inbox do
 					@inbox << message
@@ -530,7 +529,6 @@ class Environment
 		end
 
 		@pipe.write msg
-		$stderr.puts "PUT #{msg.command}"
 
 		begin
 			# FIXME: sync/async should be an arg of the message maybe?
@@ -593,7 +591,7 @@ class Environment
     host = "#{uri.host}:#{uri.port}".to_host
     result, status = [], []
 		newp = params.merge({:body => body.to_s})
-    @outbox << [verb, host, uri.path, newp, result, status]
+    $env << [verb, host, uri.path, newp, result, status]
     Thread.pass while result.empty?
     reply = result[0]
     [reply[:code], reply[:body]]

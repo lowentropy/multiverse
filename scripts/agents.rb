@@ -1,5 +1,3 @@
-$stderr.puts "loading agents"
-
 fun(:start) do
 	quit
 end

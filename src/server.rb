@@ -261,7 +261,7 @@ class Server < Mongrel::HttpHandler
 	# create an environment in a new process attached via socket
 	def create_net(name=config['default_env'].to_sym, options={})
 		IO.popen(script_command("--port #{@ports[name] ||= next_port}"))
-		sleep 0.5
+		sleep 1
 		create_io name, TCPSocket.new('127.0.0.1', @ports[name]), options
 	end
 
@@ -311,7 +311,7 @@ class Server < Mongrel::HttpHandler
 	def load_agent(agent)
 		@log.info "loading agent: #{agent.name}"
 		env = agent.name.to_sym
-		create env, :mode => :net
+		create env
 		[agent.libs, agent.code].each do |map|
 			map.each do |file,code|
 				load_script_into env, file, code
@@ -519,8 +519,6 @@ class Server < Mongrel::HttpHandler
 					end
 				end
 				sleep 0.05
-				$stderr.putc '.'
-				$stderr.flush
 			end
 		rescue Exception => e
 			return {:code => 500, :body => "unexpected error: #{e}"}

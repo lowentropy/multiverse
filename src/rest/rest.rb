@@ -13,7 +13,6 @@ module REST
 			YAML.load body
 		end
 		def put(body='', params={})
-			puts "ENV = #{$env}"
 			code, body = $env.put @uri.to_s, body, params
 			raise RestError.new(code, body) if code != 200
 		end
