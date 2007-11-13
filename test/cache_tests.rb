@@ -14,8 +14,9 @@ class CacheTests < Test::Unit::TestCase
 			puts e
 			puts e.backtrace
 		end
-		@server.load :host, {}, "scripts/cache.rb"
+		@server.load :host, {}, "scripts/cache/agent.rb"
 		@server.start
+		sleep 0.5
 		@cache = '/cache'.to_store
 	end
 

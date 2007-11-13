@@ -1,27 +1,3 @@
-map(:grid) do
-	fun :find do |uid|
-		if (item = @cache.find uid)
-			reply :body => item.render
-		else
-			reply :code => 301
-		end
-	end
-	fun :add do |uid|
-		# NOTE: body and params should get cloned from pgrid
-		item = @cache.entity.from_path uid
-		item.new
-		@cache.add item
-	end
-	fun :delete do |uid|
-		item = @cache.find uid
-		if item
-			@cache.delete item
-		else
-			reply :code => 404
-		end
-	end
-end
-
 @cache = store(/cache/, Cache) do
 	attributes :size
 	index		{ @items.keys }
@@ -49,3 +25,5 @@ end
 		end
 	end
 end
+
+map_rest
