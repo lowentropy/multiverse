@@ -5,13 +5,13 @@ require 'rcov'
 task :default => [:rcov, :rdoc]
 
 
-# require 'spec/rake/spectask'
-# desc "Run all examples"
-# Spec::Rake::SpecTask.new do |t|
-#   t.spec_files = FileList['examples/**/*.rb']
-#   # t.warning = true
-#   t.rcov = true
-# end
+require 'spec/rake/spectask'
+desc "Run all examples"
+Spec::Rake::SpecTask.new do |t|
+  t.spec_files = FileList['examples/**/*.rb']
+  # t.warning = true
+  t.rcov = true
+end
 
 require 'rake/rdoctask'
 desc 'Generate documentation'
