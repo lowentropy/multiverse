@@ -39,27 +39,31 @@ end
 
 class Item
 
-	def redirect
+	def grid
+		@parent
+	end
+
+	def internal_redirect
+		redirect and return unless grid.handle? uid
+		uri = params[:uri][@uri.size..-1]
+		code, body = $env.send params[:method], uri, body, params
+		redirect(301) if code == 404
+		reply :code => code, :body => body unless $env.replied?
+	end
+
+	def redirect(code=302)
 		target = @grid.handler_for uid
-		$env.reply :code => 302, :body => target[@uri]
+		if target
+			$env.reply :code => code, :body => target[@uri]
+		else
+			$env.reply :code => 404
+		end
 	end
 
 	def publish
 		@grid.handlers_for(uid).each do |host|
-			host[@uri].update to_params
+			host[@uri].to_entity.put body, params
 		end
-	end
-
-	def internal(action)
-		$env.call type, :grid, action
-	end
-
-	def del
-		internal :delete
-	end
-
-	def add
-		internal :add
 	end
 
 end
