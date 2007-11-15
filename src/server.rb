@@ -156,7 +156,6 @@ class Server < Mongrel::HttpHandler
 	# TODO add a public wrapper that checks the caller
 	def process(request, response)
 		debug 'server.process' do
-			@log.debug "processing #{request}"
 			begin
 				code, body = handle request
 			rescue Exception => e

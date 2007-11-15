@@ -6,6 +6,7 @@ module REST
 	# Methods shared by all server-side REST pattern instances.
   module PatternInstance
     attr_reader :uri
+		attr_reader :parent
 		# actual (request) path to instance
 		# FIXME these are sandbox-local!
 		def path
@@ -25,10 +26,6 @@ module REST
 		def method
 			$env[:method]
 		end
-		# issue a 302 reply to own static path
-    def redirect
-      $env.reply :code => 302, :body => uri
-    end
 		# get the builtin attributes of the pattern
 		def attributes
 			@pattern.instance_variable_get :@attributes

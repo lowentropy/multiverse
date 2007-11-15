@@ -37,7 +37,8 @@ module REST
 		end
 
 		def find(*parts)
-			instance_exec(*parts, &find_handler)
+			handler = find_handler
+			instance_exec(*(parts[0,handler.arity]), &handler)
 		end
 
 		def delete(entity)
@@ -96,6 +97,7 @@ module REST
 			@static = {}
 			@behaviors = []
 			@entities = []
+			@stores = []
 			create_instance(block)
 		end
 
@@ -111,15 +113,18 @@ module REST
 		end
 
 		# declare a dynamic or static entity inside this store
-		# TODO: redoc
 		def entity(regex, klass=nil, &block)
 			@entities << @entity if @entity
 			@entity = [@visibility, Entity.new(klass, regex, &block)]
 		end
 
+		def store(regex, klass=nil, &block)
+			@stores << [@visibility, Store.new(klass, regex, &block)]
+		end
+
 		# routers
 		def route(parent, instance, path, index)
-			%w(entity behavior).each do |pattern|
+			%w(entity store behavior).each do |pattern|
 				inst = send("route_to_#{pattern}", parent,instance,path,index)
 				return inst if inst
 			end
@@ -129,6 +134,15 @@ module REST
 		def route_to_entity(parent, instance, path, index)
 			@entities.each do |entity|
 				vis, klass = *entity
+				inst = route_to_sub(vis, klass, parent, instance, path, index)
+				return inst if inst
+			end
+			nil
+		end
+
+		def route_to_store(parent, instance, path, index)
+			@stores.each do |store|
+				vis, klass = *store
 				inst = route_to_sub(vis, klass, parent, instance, path, index)
 				return inst if inst
 			end
