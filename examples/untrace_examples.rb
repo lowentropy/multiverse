@@ -1,7 +1,18 @@
+require 'rubygems'
+require 'spec'
 require 'src/untrace'
 require 'src/environment'
 
 describe "Utrace" do
+	
+	def foo
+		untraced(1) { bar }
+	end
+
+	def bar
+		raise 'baz'
+	end
+
   it 'should untrace' do
     begin
       foo
@@ -30,7 +41,9 @@ fun :baz do
   bar
 end
 END
-      @env.baz
+			$env = nil
+			@env.externalize_sandbox
+      $stderr.puts @env.baz.inspect
     rescue RuntimeError => e
       e.should_not be_nil
       e.backtrace[0].should == "test:2:in `foo'"
@@ -40,14 +53,4 @@ END
       fail
     end
 	end
-end
-
-def foo
-  untraced(1) do
-    bar
-  end
-end
-
-def bar
-  raise 'baz'
 end

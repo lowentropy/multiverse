@@ -10,7 +10,7 @@ describe "Cache" do
 			puts e
 			puts e.backtrace
 		end
-		@server.load :host, {}, "scripts/cache.rb"
+		@server.load :host, {}, "scripts/cache/agent.rb"
 		@server.start
 		@cache = '/cache'.to_store
 	end

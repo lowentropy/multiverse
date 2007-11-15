@@ -4,24 +4,20 @@ store(/grid/, PGrid) do
 
 	attributes :uid, :prefix, :links, :size
 
-	# TODO: rest errors should propagate by duplicating
-	# the return code and body
-	
-	# TODO: a cache miss should return a temporary redirect,
-	# while a grid miss should return a permanent redirect
-	
-	index	{ render }
-	find	{|uid| Item.new uid, self }
-	add		{|item| handle?(item.uid) ? cache.add(item) : item.redirect}
+	index		{ render }
+	find		{|uid,type| Item.new uid, type }
+	add			{|item| handle?(item.uid) ? item.add : item.redirect }
+	delete	{|item| handle?(item.uid) ? item.del : item.redirect }
 
-	entity(/(uid)/, Item) do
+	# TODO: routing should allow / in regex by including a number
+	# of path parts equal to # of /'s + 1
+	entity(/(uid)\/(.+)/, Item) do
 
-		path :uid
+		path :uid, :type
 
-		new			{ cached.new }
-		show		{ @grid.handle?(uid) ? cached.get : redirect }
-		update	{ cached.edit; publish unless params[:local] }
-		delete	{ owner? ? cached.delete : forbidden }
+		show		{ @parent.handle?(uid) ? cached.find : redirect }
+		update	{ add; publish unless params[:local] }
+		delete	{ owner? ? del : forbidden }
 	end
 
 	behavior(/swap/) { swap params }

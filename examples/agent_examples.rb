@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'spec'
 require 'src/ext'
 require 'src/environment'
 require 'src/server'
@@ -9,7 +11,7 @@ require 'mongrel'
 describe "Agent" do
   before :each do
     begin
-      @server = Server.new :log => {:level => :debug}, 'port' => 4000
+      @server = Server.new :log => {:level => :fatal}, 'port' => 4000
       @host = @server.localhost
     rescue Exception => e
       puts e
@@ -30,17 +32,15 @@ describe "Agent" do
   end
   
   it "should load agents as agent and add agent" do
-    pending "functionality"
     @server.load :test, {}, 'scripts/test/agent.rb'
-    @server.start
-    sleep 10
+    @server.start true, :test
+    sleep 1
     foo = '/agents/foo'.to_entity
     foo.put @agent.to_yaml
     @agent.to_yaml.should == foo.get.to_yaml
   end
   
   it "should add new agent" do
-    pending "functionality"
     @server.load :host, {}, 'scripts/agents.rb'
     @server.start
     foo = '/agents/foo'.to_entity

@@ -6,10 +6,6 @@ class PGrid
 		self.links = {@prefix => [host]}
 	end
 
-	def cache
-		'/cache'.to_store
-	end
-
 	# specialize domain against another pgrid
 	def swap(params)
 		grid = self.class.reconstruct params[:pgrid]
@@ -34,7 +30,7 @@ class PGrid
 	end
 
 	# whether this grid should handle this uid
-	def handles?(uid)
+	def handle?(uid)
 		uid.to_bitstring[0,prefix.size] == prefix
 	end
 
@@ -43,26 +39,27 @@ end
 
 class Item
 
-	attributes :data, :signature
-
-	def initialize(uid, grid)
-		@uid = uid
-		@grid = grid
-	end
-
-	def cached
-		@cached ||= "/cache/#{uid}".to_entity
-	end
-
 	def redirect
 		target = @grid.handler_for uid
-		reply :code => 302, :body => target[uri]
+		$env.reply :code => 302, :body => target[@uri]
 	end
 
 	def publish
 		@grid.handlers_for(uid).each do |host|
-			host[uri].update to_params
+			host[@uri].update to_params
 		end
+	end
+
+	def internal(action)
+		$env.call type, :grid, action
+	end
+
+	def del
+		internal :delete
+	end
+
+	def add
+		internal :add
 	end
 
 end
