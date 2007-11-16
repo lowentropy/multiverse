@@ -43,7 +43,7 @@ end
 END
 			$env = nil
 			@env.externalize_sandbox
-      $stderr.puts @env.baz.inspect
+			@env.baz
     rescue RuntimeError => e
       e.should_not be_nil
       e.backtrace[0].should == "test:2:in `foo'"

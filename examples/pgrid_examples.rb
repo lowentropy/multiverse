@@ -56,7 +56,7 @@ describe "PGrid" do
 		@server.load :test2, {}, "scripts/cache/agent.rb"
 		@server.start true, :test2
 		uid = UID.random
-		'/grid'.to_store[uid].put '', :data => 'foo'
+		'/grid'.to_store[uid].put 'foo'
 		'/cache'.to_store.index.should == [uid]
 		'/cache'.to_store[uid].get.should == 'foo'
 		'/grid'.to_store[uid].get.should == 'foo'
@@ -67,9 +67,20 @@ describe "PGrid" do
 		@server.load :test1, {}, "scripts/pgrid/agent.rb"
 		@server.load :test2, {}, "scripts/cache/agent.rb"
 		@server.start true, :test2
-		#uid = UID.random
-		'/cache'.to_store[uid].put '', :data => 'foo'
+		uid = UID.random
+		'/cache'.to_store[uid].put 'foo'
 		'/grid'.to_store[uid].get.should == 'foo'
+	end
+
+	it 'should interface with solver' do
+		#pending 'sanity'
+		@server.load :pgrid_loader, {}, "scripts/pgrid/agent.rb"
+		@server.load :solver_loader, {}, "scripts/solver/agent.rb"
+		@server.start true, :pgrid_loader
+		uid = UID.random
+		solver = '/grid'.to_store[uid].solver
+		solver.put '2+2'
+		solver.get.should == 4
 	end
 
 end

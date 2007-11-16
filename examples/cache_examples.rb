@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'spec'
 require 'src/environment'
 require 'src/server'
 
@@ -33,7 +35,7 @@ describe "Cache" do
 		
 		lambda { item.get }.should raise_error(REST::RestError, /404/)
 		
-		item.put '', :data => 'foo'
+		item.put 'foo'
 		
 		@cache.size.get.should == 1
 		@cache.index.should == [uid.to_s]
@@ -47,27 +49,27 @@ describe "Cache" do
 	end
 	it "should allow update by nobody" do	  
 		item = @cache[UID.random]
-		item.put '', :data => 'foo'
+		item.put 'foo'
 		item.get.should == 'foo'
-		item.put '', :data => 'bar'
+		item.put 'bar'
 		item.get.should == 'bar'
 	end
 	
 	it "should allow update by owner" do
 		item = @cache[UID.random]
-		item.put '', :data => 'foo'
+		item.put 'foo'
 		item.get.should == 'foo'
-		item.put '', :data => 'bar', :owner => 'bob'
+		item.put 'bar', :owner => 'bob'
 		item.get.should == 'bar'
-		item.put '', :data => 'baz', :owner => 'bob'
+		item.put 'baz', :owner => 'bob'
 		item.get.should == 'baz'
 	end
 	
 	it "should not allow update by non owner" do
 		item = @cache[UID.random]
-		item.put '', :data => 'foo', :owner => 'bob'
+		item.put 'foo', :owner => 'bob'
 		item.get.should == 'foo'
-    lambda { item.put('', :data => 'baz', :owner => 'ted') }.should raise_error(REST::RestError, /401/)
+    lambda { item.put('baz', :owner => 'ted') }.should raise_error(REST::RestError, /401/)
     item.get.should == 'foo'
 	end
 	

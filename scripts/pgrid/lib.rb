@@ -80,10 +80,10 @@ class Item
 	# make an internal call to the target of the grid request
 	def internal_redirect
 		redirect and return unless grid.handle? uid
-		uri = '/' + (@uri[uid.size+1..-1] || 'cache') + "/#{uid}"
-		code, body = $env.send method, uri, body, params
-		redirect(301, body) if code == 404
-		reply :code => code, :body => body unless $env.replied?
+		uri = ((target == '/') ? '/cache' : target) + "/#{uid}"
+		code, return_body = eval "$env.#{method} uri, body, params"
+		redirect(301, return_body) if code == 404
+		reply :code => code, :body => return_body unless $env.replied?
 	end
 
 	# redirect to another host

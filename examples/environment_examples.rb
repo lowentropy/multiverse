@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'spec'
 require 'src/environment'
 
 describe "Environment" do
@@ -33,7 +35,7 @@ describe "Environment" do
 		@env.run!
 		"foo".to_host.put '/test', :param => 'value', :message_id => 0
 		@pipe.read # :started
-    @pipe.read.to_s.should =~ /PUT http:\/\/foo:4000\/test\?((param=value|message_id=0)&?)+/
+    @pipe.read.to_s.should =~ /PUT http:\/\/foo:4000\/test:\{(:[a-z_]+=>("value"|0)(, )?)+\}/
 		@env.shutdown!
 		@env.join 0
 	end
@@ -47,7 +49,7 @@ END
 		@env.run!
 		@env.test
 		@pipe.read # :started
-    @pipe.read.to_s.should =~ /PUT http:\/\/foo:4000\/test\?((param=value|message_id=0)&?)+/
+    @pipe.read.to_s.should =~ /PUT http:\/\/foo:4000\/test:\{(:[a-z_]+=>("value"|0)(, )?)+\}/
 		@env.shutdown!
 		@env.join 0
 	end

@@ -43,8 +43,7 @@ class Message
 
 	# string in format of COMMAND protocol://host/path?params
 	def to_s
-		params = @params.map {|k,v| "#{k}=#{v}"}.join("&")
-		"#{command.to_s.upcase} #{proto}#{host}#{url}?#{params}"
+		"#{command.to_s.upcase} #{proto}#{host}#{url}:#{@params.inspect}"
 	end
 
 	# protocol. http:// for normal message,

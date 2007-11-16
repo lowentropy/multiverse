@@ -413,7 +413,7 @@ class Environment
 
 	# taint the params hash and call the given handler on the sandbox
 	def call_handler(object, params, path, &block)
-		params[:request_uri] = path
+		self[:request_uri] = path
 		params.taint
 		sandbox :obj => object, &block
 	end
@@ -747,8 +747,7 @@ class Environment
 	# issue a PUT request
   def put(url, body, params)
 		must_call_from_sandbox!
-    res = handle_request :put, url, body, params
-		res
+    handle_request :put, url, body, params
   end
   
 	# issue a POST request

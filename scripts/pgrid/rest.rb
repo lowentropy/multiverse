@@ -3,7 +3,7 @@ store(/grid/, PGrid) do
 	find		{|uid| entity.from_path }
 	add			{|item| item.update }
 	entity(/(uid)/, Item) do
-		path :uid
+		path :uid, :trailing => :target
 		get    { internal_redirect }
 		update { internal_redirect }
 		delete { internal_redirect }

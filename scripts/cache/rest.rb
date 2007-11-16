@@ -6,8 +6,9 @@
 	delete	{|item| @items.delete item.uid }
 	entity(/(uid)/, Cache::Item) do
 		path :uid
-		attributes :data, :owner, :uid
+		attributes :owner, :uid
 		new do
+			@data = body
 			default_new
 		end
 		update do
@@ -15,7 +16,7 @@
 				reply :code => 401, :body => "wrong owner"
 				return
 			end
-			@data = params[:data] if params[:data]
+			@data = body if body
 			@owner = params[:owner] if params[:owner]
 		end
 		get do

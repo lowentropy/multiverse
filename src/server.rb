@@ -214,7 +214,6 @@ class Server < Mongrel::HttpHandler
 	# respose is received. returns [code, body].
   def handle_request (verb, host, path, *rest)
 		body, params = (rest.shift || ''), (rest.shift || {})
-		encoded = params.map {|k,v| "#{k}=#{v}"}.join("&")
 		request = create_request(verb, path, body, params)
 		response = Net::HTTP.start(*host.info) do |http|
 			http.request request
@@ -228,6 +227,7 @@ class Server < Mongrel::HttpHandler
 		if body and request_class.body?
 			request = request_class.new(path + params.url_encode)
 			request.body = body
+			request.content_type = 'text/plain'
 		else
 			request = request_class.new path
 			request.form_data = params
@@ -379,7 +379,7 @@ class Server < Mongrel::HttpHandler
 
 		# script url map command
 		when :map
-			return map(name, msg.params[:regex], msg.params[:handler_id])
+			return map(name, msg.params[:regex])
 
 		# out-of-band bookkeeping
 		when :log, :error
@@ -406,10 +406,10 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# map a url regex to an environment handler id
-	def map(name, regex, handler_id)
+	def map(name, regex)
 		# FIXME: there should be scope restrictions for security
-		@maps[regex] = [name, handler_id]
-		@log.info "mapped #{regex.source} to #{name}, id = #{handler_id}"
+		@maps[regex] = name
+		@log.info "mapped #{regex.source} to #{name}"
 		Message.system(:mapped, :status => :ok)
 	end
 
@@ -435,19 +435,20 @@ class Server < Mongrel::HttpHandler
 		debug 'handle' do
 			info = request_info request
 			method, url = info[:method], info[:path]
-			env, handler_id = handler_for url
+			env = handler_for url
 			return [404, "#{method} #{url}"] unless env
-			handle_with request, env, handler_id
+			handle_with request, env
 		end
 	end
 
 	# get information about the request
 	def request_info(request)
 		body = read_body(request.body)
+		body, params = request_body_params(request, body)
 		{	:method	=> request.params['REQUEST_METHOD'].downcase.to_sym,
 			:path		=> URI.parse(request.params['REQUEST_PATH']),
 			:body		=> body,
-			:params	=> request_params(request, body) }
+			:params	=> params }
 	end
 
 	# read the body from a mongrel request
@@ -460,13 +461,14 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# get form params from request
-	def request_params(request, body)
-		to_decode =
-			if /encoded/ =~ request.params['Content-Type']
-				body
+	def request_body_params(request, body)
+		body, to_decode =
+			if /encoded/i =~ request.params['CONTENT_TYPE']
+				[nil, body || '']
 			else
 				uri = request.params['REQUEST_URI']
-				uri[(uri.rindex('?')||-2)+1..-1]
+				idx = uri.rindex '?'
+				[body, idx ? uri[idx+1..-1] : '']
 			end
 
 		params = {}
@@ -475,19 +477,17 @@ class Server < Mongrel::HttpHandler
 			params[key] = val
 		end
 
-		params
+		[body, params]
 	end
 
 	# handle request with given environment
-	def handle_with(request, env, handler_id)
+	def handle_with(request, env)
 		info = request_info request
 		method, url = info[:method], info[:path]
-		params = request_params(request, info[:body]).merge({
-			:handler_id => handler_id,
-			:method => method,
-			:body => info[:body]})#.stringify!
+		body, params = request_body_params(request, info[:body])
+		params.merge!({:method => method, :body => body})
 
-		@log.debug "calling #{env}'s handler for #{url}"
+		@log.debug "calling #{env.inspect}'s handler for #{url}"
 		msg = Message.new(:action, @localhost, url, params)
 		send_to_pipe @pipes[env], msg
 		reply = wait_for_reply_to msg
@@ -534,11 +534,11 @@ class Server < Mongrel::HttpHandler
 	def handler_for(url)
 		@maps.each do |regex,value|
 			if regex.match_all? url.path.split('/')[1]
-				@log.debug "#{url} maps to #{value[0]} via #{regex}"
-				return [value[0], value[1]] 
+				@log.debug "#{url} maps to #{value} via /#{regex.source}/"
+				return value
 			end
 		end
-		[nil, nil]
+		nil
 	end
 
 end
