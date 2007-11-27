@@ -279,7 +279,6 @@ module REST
     def handle(parent, instance, path, index)
 			if @trailing
 				trail = '/' + path[index..-1].join('/')
-				$env.dbg "SET @#{@trailing} to #{trail.inspect}" # XXX
 				instance.instance_variable_set "@#{@trailing}", trail
 				instance
       elsif path[index]

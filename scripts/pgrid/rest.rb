@@ -15,6 +15,9 @@ store(/grid/, PGrid) do
 			get { parent.parent.links(level) }
 		end
 	end
+	behavior(/map/) do
+		@maps << [/#{params[:regex]}/, params[:agent], params[:sub]]
+	end
 end
 
 fun(:start) { quit }

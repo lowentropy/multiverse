@@ -1,3 +1,5 @@
+req 'scripts/pgrid/lib.rb' # TODO: replace w/ use
+
 class Solver
 	def initialize
 		@problems = {}
@@ -24,5 +26,6 @@ end
 map_rest
 
 fun(:start) do
+	'/grid'.to_grid.map :solver, /solver/ => '\1'
 	quit
 end

@@ -28,6 +28,7 @@ class Server < Mongrel::HttpHandler
 		@pipes = {}
 		@maps = {}
 		@ports = {}
+		@agents = {}
 		@env_port = 4000
 		@environments = {}
 		@pipe_threads = []
@@ -308,20 +309,29 @@ class Server < Mongrel::HttpHandler
 
 	# load a software agent
 	def load_agent(agent)
-		@log.info "loading agent: #{agent.name}"
-		env = agent.name.to_sym
-		create env
-		[agent.libs, agent.code].each do |map|
-			map.each do |file,code|
-				load_script_into env, file, code
+		if @agents[agent.name]
+			@log.dbg "already loaded agent: #{agent.name}"
+			@agents[agent.name]
+		elsif agent.code.any?
+			@log.info "loading agent: #{agent.name}"
+			env = agent.name.to_sym
+			create env
+			[agent.libs, agent.code].each do |map|
+				map.each do |file,code|
+					load_script_into env, file, code
+				end
 			end
+			@log.info "loaded agent: #{agent.name}"
+			if @started
+				send_to_pipe @pipes[env], Message.system(:start) 
+				@log.info "started agent: #{agent.name}"
+			end
+			test env
+			@agents[agent.name] = env
+		else
+			@log.info "loaded agent with no environment: #{agent.name}"
+			nil
 		end
-		@log.info "loaded agent: #{agent.name}"
-		if @started
-			send_to_pipe @pipes[env], Message.system(:start) 
-			@log.info "started agent: #{agent.name}"
-		end
-		test env
 	end
 
 	# make sure an environment is alive
@@ -355,10 +365,22 @@ class Server < Mongrel::HttpHandler
 		# load a software agent
 		when :load_agent
 			agent = YAML.load(msg[:agent])
-			load_agent agent
+			env = load_agent agent
 			return Message.new(:reply, msg.host, msg.url,
 				{	:message_id => msg[:message_id],
-					:environment => agent.name.to_sym})
+					:environment => env })
+
+		# load a software agent AND load its library
+		# scripts into the calling environment
+		when :use
+			agent = find_agent msg[:name]
+			env = load_agent agent
+			agent.libs.each do |lib|
+				load_script_into name, lib
+			end
+			return Message.new(:reply, msg.host, msg.url,
+				{	:message_id => msg[:message_id],
+					:environment => env })
 
 		# 404 error response from environment
 		when :not_found

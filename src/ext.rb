@@ -105,6 +105,12 @@ end
 # Add basic extensions to String.
 class String
 	
+	# check that we match the uid pattern
+	def uid
+		raise "invalid uid" unless Regexp::UID =~ self
+		self
+	end
+
 	# evaluate this string (i.e., treat it as a constant)
 	def constantize
 		begin
@@ -130,14 +136,16 @@ end
 class Regexp
 
 	# the format of a UID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-	def uid_format
+	def self.uid_format
 		h = '[0-9A-Fa-f]'
 		"#{h}{8}-#{h}{4}-#{h}{4}-#{h}{4}-#{h}{12}"
 	end
 
+	UID = /#{Regexp.uid_format}/
+
 	# replace instances of {uid} with the uid regex
 	def replace_uids
-		/#{source.gsub(/\(uid\)/,"(#{uid_format})")}/
+		/#{source.gsub(/\(uid\)/,"(#{Regexp::UID})")}/
 	end
 
 	# like match, but returns nil unless the matching text

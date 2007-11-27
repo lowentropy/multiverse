@@ -1,3 +1,18 @@
+class String
+	def to_grid
+		class << self
+			def map(agent, maps)
+				maps.each do |regex,sub|
+					"#{self}/map".to_rest.post	:regex => regex.source,
+																			:agent => agent.to_s,
+																			:sub => sub
+				end
+			end
+		end
+		self
+	end
+end
+
 # The PGrid Root Collection
 class PGrid
 
@@ -5,14 +20,27 @@ class PGrid
 	def initialize
 		@prefix = ''
 		@links = {}
+		@maps = []
 	end
 
+	# convert a uid into bits
 	def bits(uid)
-		h = '[0-9a-zA-Z]'
-		p = /(#{h}{8})-(#{h}{4})-(#{h}{4})-(#{h}{4})-(#{h}{12})/
-		p.match(uid)[1..-1].map do |hex|
+		Regexp::UID.match(uid)[1..-1].map do |hex|
 			"%0#{hex.size*4}b" % [eval("0x#{hex}")]
 		end.join ''
+	end
+
+	# use user-assigned mappings for internal redirect
+	def remap(uid, target)
+		@maps.each do |list|
+			regex, agent, sub = list
+			next unless regex =~ target
+			regex = /(#{uid})\/#{regex.source}/
+			uri = "#{uid}/#{target}"
+			sub = "/#{agent}/#{sub}"
+			return uri.sub(regex, sub)
+		end
+		"/cache/#{uid}#{target}"
 	end
 
 	# returns all links up to and including length 'level'
@@ -80,7 +108,7 @@ class Item
 	# make an internal call to the target of the grid request
 	def internal_redirect
 		redirect and return unless grid.handle? uid
-		uri = ((target == '/') ? '/cache' : target) + "/#{uid}"
+		uri = grid.remap uid, target
 		code, return_body = eval "$env.#{method} uri, body, params"
 		redirect(301, return_body) if code == 404
 		reply :code => code, :body => return_body unless $env.replied?

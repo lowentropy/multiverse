@@ -44,7 +44,6 @@ require 'rest/behavior'
 
 # RESTful extensions
 class String
-	# XXX i do not know if this is wise
 	def to_rest
 		REST::Adapter.new(self)
 	end

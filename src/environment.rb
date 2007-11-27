@@ -112,7 +112,7 @@ class Environment
 
 	# add script-accessible (unsafe) functions
 	def add_script_commands
-		%w(	map current_state req << [] []=
+		%w(	map current_state req << [] []= use
 				require k goto klass quit replied?
 				state function fun reply pass err
 				private public params log dbg exit?
@@ -642,6 +642,17 @@ class Environment
 		unless @included.include? script
 			@required << script
 			raise "require"
+		end
+	end
+
+	# require an agent to be loaded and include
+	# the agent library files in this environment
+	def use(*agents)
+		must_call_from_sandbox!
+		agents.each do |agent|
+			msg = [:use, nil, nil, {:name => agent}, [], []]
+			@outbox << msg
+			Thread.pass while msg[-2].empty?
 		end
 	end
 
