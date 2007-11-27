@@ -1,3 +1,5 @@
+use! 'rest'
+
 @cache = store(/cache/, Cache) do
 	attributes :size
 	index		{ @items.keys }
@@ -28,3 +30,5 @@
 end
 
 map_rest
+
+fun(:start) { quit }

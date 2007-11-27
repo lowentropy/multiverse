@@ -112,8 +112,8 @@ class Environment
 
 	# add script-accessible (unsafe) functions
 	def add_script_commands
-		%w(	map current_state req << [] []= use
-				require k goto klass quit replied?
+		%w(	map current_state req << [] []=
+				require goto quit replied? use use!
 				state function fun reply pass err
 				private public params log dbg exit?
 				entity behavior store listen agent
@@ -146,9 +146,7 @@ class Environment
 
 	public
 
-	# add a script to the environment.
-	# this method can't really get shorter or simpler, unfortunately.
-	# TODO: set SAFE=4 and see what happens.
+	# add a script to the environment
 	def add_script(name, text=nil)
 		untraced(2) do
 			# push previous require (depth-first order)
@@ -532,7 +530,7 @@ class Environment
 
 		begin
 			# FIXME: sync/async should be an arg of the message maybe?
-			if [:get, :post, :put, :delete, :load_agent].include? command
+			if %w(get post put delete load_agent use).include? command.to_s
 				wait_for_reply_to msg, result, done
 			end
 		rescue Exception => e
@@ -592,6 +590,7 @@ class Environment
     result, status = [], []
 		newp = params.merge({:body => body.to_s})
     $env << [verb, host, uri.path, newp, result, status]
+		wait_for_reply_to
     Thread.pass while result.empty?
     reply = result[0]
     [reply[:code], reply[:body]]
@@ -649,11 +648,20 @@ class Environment
 	# the agent library files in this environment
 	def use(*agents)
 		must_call_from_sandbox!
+		ok = true
 		agents.each do |agent|
-			msg = [:use, nil, nil, {:name => agent}, [], []]
+			result, status = [], []
+			msg = [:use, nil, nil, {:name => agent}, result, status]
 			@outbox << msg
-			Thread.pass while msg[-2].empty?
+			Thread.pass while result.empty?
+			ok &&= (status[0] == :ok)
 		end
+		ok
+	end
+
+	# require an agent to be loaded, or die
+	def use!(*agents)
+		raise "agent load failed" unless use *agents
 	end
 
 	# map a host url pattern

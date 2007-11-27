@@ -43,7 +43,7 @@ module Sammich
 	class Reputation
 		def initialize(uid)
 			@uid = uid
-			@rep = "/grid/#{@uid}/sammich".to_entity
+			@rep = "/grid/#{@uid}/rep".to_entity
 		end
 		def trust?
 			reputation > 0
@@ -67,6 +67,15 @@ module Sammich
 			@rep.put complaint.to_yaml
 			@complaints << complaint if @complaints
 		end
+		private
+		def decide(r, f)
+			r * f <= @ra * @fa * (0.5 + 4.0 / ((@ra * @fa) ** 0.5)) ** 2.0
+		end
+		public
+		def reputation!(level=nil)
+			@complaints = nil
+			reputation level
+		end
 		def reputation(level=nil)
 			return 0 if (level ||= 1) <= 0
 			w = {}
@@ -76,14 +85,14 @@ module Sammich
 				w[a][c.by == uid ? 1 : 0] += 1
 				w[a][2] += 1
 			end
+			return 0 if w.size == 0
 			s = w.map {|i| i[2]}.sum.to_f
 			w.each do |a,i|
 				i[0] *= (1.0 - ((s - i[2]) / s) ** s)
 				i[1] *= (1.0 - ((s - i[2]) / s) ** s)
 			end
-			return 0 if w.size == 0
 			if w.size == 1
-				return 0 if (a = w.keys[0]).rep < 1
+				return 0 if (a = w.keys[0]).rep(level-1) < 1
 				return decide(w[a][0], w[a][1])
 			end
 			s = w.values.map {|c| decide(c[0], c[1])}.sum
@@ -99,11 +108,6 @@ module Sammich
 			@about = []
 			@by = []
 		end
-		private
-		def decide(r, f)
-			r * f <= @ra * @fa * (0.5 + 4.0 / ((@ra * @fa) ** 0.5)) ** 2.0
-		end
-		public
 		def complaints(scope=:all)
 			case scope.to_s
 			when 'all' then @about + @by

@@ -1,3 +1,5 @@
+use! 'rest'
+
 store(/grid/, PGrid) do
 	attributes :prefix
 	find		{|uid| entity.from_path }
@@ -20,6 +22,6 @@ store(/grid/, PGrid) do
 	end
 end
 
-fun(:start) { quit }
-
 map_rest
+
+fun(:start) { quit }

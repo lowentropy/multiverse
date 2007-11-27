@@ -7,6 +7,7 @@ require 'net/http'
 require 'mongrel'
 require 'socket'
 require 'config'
+require 'agent'
 require 'debug'
 require 'agent'
 require 'host'
@@ -307,6 +308,15 @@ class Server < Mongrel::HttpHandler
 		start_pipe_thread name, pipe
 	end
 
+	# find an agent of this name
+	def find_agent(name)
+		# FIXME this is BAD. use an env.
+		eval File.read("scripts/#{name}/agent.rb")
+	rescue
+		@log.error $!
+		nil
+	end
+
 	# load a software agent
 	def load_agent(agent)
 		if @agents[agent.name]
@@ -339,7 +349,7 @@ class Server < Mongrel::HttpHandler
 		msg = Message.system(:ping)
 		send_to_pipe @pipes[env], msg
 		wait_for_reply_to msg
-		@log.info "#{env}: ping!"
+		@log.debug "#{env}: ping!"
 	end
 
 	# start a handler thread for the given message pipe
@@ -374,9 +384,10 @@ class Server < Mongrel::HttpHandler
 		# scripts into the calling environment
 		when :use
 			agent = find_agent msg[:name]
+			raise "can't find agent #{msg[:name]}" unless agent
 			env = load_agent agent
-			agent.libs.each do |lib|
-				load_script_into name, lib
+			agent.libs.each do |name,code|
+				load_script_into name, name, code
 			end
 			return Message.new(:reply, msg.host, msg.url,
 				{	:message_id => msg[:message_id],

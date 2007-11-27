@@ -1,5 +1,4 @@
-# TODO: add 'use'
-use 'rest', 'pgrid'
+use! 'rest'
 
 store(/sammich/, Sammich::Store) do
 	find {|uid| reps[uid] ||= entity.from_path }
@@ -17,8 +16,10 @@ store(/sammich/, Sammich::Store) do
 	end
 end
 
-fun(:start) do
-	'/grid'.to_grid.map(/(rep|complaints)/, :sammich, '\1/\2')
-	map_rest
-	quit
+map_rest
+
+if use('pgrid')
+	'/grid'.to_grid.map :sammich, /(rep|complaints)/ => '\1/\2'
 end
+
+fun(:start) { quit }

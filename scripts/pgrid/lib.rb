@@ -1,12 +1,23 @@
+# Convert URL into a grid adapter
 class String
 	def to_grid
 		class << self
-			def map(agent, maps)
+			# register a url map with the grid
+			def map(agent, maps=nil)
+				maps ||= {(/#{agent}/) => '\1'}
 				maps.each do |regex,sub|
 					"#{self}/map".to_rest.post	:regex => regex.source,
 																			:agent => agent.to_s,
 																			:sub => sub
 				end
+			end
+			# do a grid lookup
+			def [](uri, params={})
+				"#{self}/#{uri}".to_rest.get params
+			end
+			# do a grid post
+			def []=(uri, value, params={})
+				"#{self}/#{uri}".to_rest.put value, params
 			end
 		end
 		self
