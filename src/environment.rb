@@ -5,7 +5,6 @@ require 'sandbox'
 require 'pipe'
 require 'host'
 require 'untrace'
-require 'rest/rest'
 require 'agent'
 require 'uri'
 require 'ext'
@@ -31,7 +30,6 @@ class Environment
 		@inbox = []
 		@replies = []
 		@sandbox = Sandbox.new
-		@sandbox.extend REST
 		@mutex = Mutex.new
 		@state = [:global].taint
 		@classes = {}.taint
@@ -206,8 +204,7 @@ class Environment
 		return_value
 	end
 
-	# ensure that the caller function was called
-	# from a sandbox. FIXME must be a better way to do this
+	# ensure that the caller function was called from a sandbox.
 	def must_call_from_sandbox!
 		return unless @sandbox_check
 		unless /sandbox\.rb/ =~ caller[1]
@@ -375,6 +372,7 @@ class Environment
 				shutdown!(message[:message_id])
 				@timeout = message[:timeout] # FIXME: ???
 			when :load then
+				dbg "calling add_script #{message[:file]}" # XXX
 				add_script message[:file], message[:text]
 				@outbox << [:loaded, nil, nil, message.params]
 			when :ping then
@@ -647,7 +645,6 @@ class Environment
 	# require an agent to be loaded and include
 	# the agent library files in this environment
 	def use(*agents)
-		must_call_from_sandbox!
 		ok = true
 		agents.each do |agent|
 			result, status = [], []
@@ -661,6 +658,7 @@ class Environment
 
 	# require an agent to be loaded, or die
 	def use!(*agents)
+		must_call_from_sandbox!
 		raise "agent load failed" unless use *agents
 	end
 

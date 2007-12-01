@@ -5,7 +5,6 @@ describe "Behaviour" do
   before :each do 
 		begin
 			@server = Server.new :log => {:level => :fatal}, 'port' => 4000
-			@host = @server.localhost
 		rescue Exception => e
 			puts e
 			puts e.backtrace
@@ -16,7 +15,6 @@ describe "Behaviour" do
 		return unless @server
 		@server.shutdown
 		@server.join
-    # rescue Mongrel::StopServer => e
   end
   
   it "should call toplevel behavior" do    

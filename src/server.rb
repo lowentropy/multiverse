@@ -72,6 +72,7 @@ class Server < Mongrel::HttpHandler
 		@log.debug "attempting to load #{script}"
 		load_msg = Message.system(:load, :file => script, :text => text)
 		send_to_pipe @pipes[env], load_msg
+		@log.debug "sent load message" # XXX
 		reply = wait_for_reply_to load_msg
 		@log.debug "loaded #{script}"
 		raise reply[:error] if reply[:error]
@@ -283,6 +284,26 @@ class Server < Mongrel::HttpHandler
 		start_pipe_thread name, pipe
 	end
 
+	# create a temporary sandbox and execute the code
+	def sandbox(&block)
+		unless @environments[:sandbox]
+			create :sandbox, :mode => :mem
+			load_script_into :sandbox, '(inline)', <<-END
+				fun(:start) { quit }
+			END
+			@environments[:sandbox].sandbox_check = false
+			if @started
+				send_to_pipe @pipes[:sandbox], Message.system(:start) 
+				@log.info "started sandbox environment"
+			end
+		end
+		rval = []
+		Thread.new(@environments[:sandbox],block,rval) do |env,code,rval|
+			rval << env.send(:sandbox, &code)
+		end.join
+		rval[0]
+	end
+
 	private
 
 	# get the command for running a script
@@ -308,6 +329,11 @@ class Server < Mongrel::HttpHandler
 		start_pipe_thread name, pipe
 	end
 
+	# same as in Environment
+	def agent(name, &block)
+		Agent.new(name, &block)
+	end
+
 	# find an agent of this name
 	def find_agent(name)
 		# FIXME this is BAD. use an env.
@@ -326,8 +352,9 @@ class Server < Mongrel::HttpHandler
 			@log.info "loading agent: #{agent.name}"
 			env = agent.name.to_sym
 			create env
-			[agent.libs, agent.code].each do |map|
-				map.each do |file,code|
+			[agent.libs, agent.code].each do |list|
+				list.each do |lib|
+					file, code = lib
 					load_script_into env, file, code
 				end
 			end
@@ -386,8 +413,10 @@ class Server < Mongrel::HttpHandler
 			agent = find_agent msg[:name]
 			raise "can't find agent #{msg[:name]}" unless agent
 			env = load_agent agent
-			agent.libs.each do |name,code|
-				load_script_into name, name, code
+			@log.debug "env for agent #{msg[:name]} is #{env}"
+			agent.libs.each do |lib|
+				file, code = lib
+				load_script_into name, file, code
 			end
 			return Message.new(:reply, msg.host, msg.url,
 				{	:message_id => msg[:message_id],
@@ -428,7 +457,7 @@ class Server < Mongrel::HttpHandler
 
 		nil
 	rescue Exception => e
-		@log.fatal e
+		@log.error e
 		fail
 	end
 
@@ -558,7 +587,7 @@ class Server < Mongrel::HttpHandler
 		if @shutdown
 			return {:code => 500, :body => "server shutdown before reply"}
 		else
-			return {:code => 500, :body => "timed out: #{msg}"}
+			return {:code => 500, :body => "timed out", :error => "timed out"}
 		end
 	end
 
