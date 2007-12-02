@@ -6,13 +6,14 @@ require 'src/server'
 describe "Sammich" do
   before :each do
 		begin
-			@server = Server.new :log => {:level => :debug}, 'port' => 4000
-			@server.sandbox do
-				use! 'rest', 'pgrid', 'sammich'
-			end
+			@server = Server.new :log => {:level => :error}, 'port' => 4000
 		rescue Exception => e
 			puts e
 			puts e.backtrace
+		end
+		@server.start
+		@server.sandbox do
+			use! 'sammich'
 		end
 	end
 
