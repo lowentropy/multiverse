@@ -21,9 +21,9 @@ end
 module Sammich
 	
 	class Store
-		attr_reader :people
+		attr_reader :reps
 		def initialize
-			@people = {}
+			@reps = {}
 		end
 	end
 
@@ -37,6 +37,11 @@ module Sammich
 		end
 		def about?(uid)
 			@about == uid
+		end
+		def post_to(somewhere)
+			y = self.to_yaml
+			somewhere[by].complaints.post y
+			somewhere[about].complaints.post y
 		end
 	end
 

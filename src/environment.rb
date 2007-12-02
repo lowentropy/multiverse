@@ -772,6 +772,7 @@ class Environment
 
 	# send an error message
 	def err(msg, message_id=nil)
+		msg = format_err(msg) if msg.kind_of? Exception
 		$stderr.puts "FATAL XXX: #{msg}" if @superfatal
 		@outbox << [:error, nil, nil, 
 			{	:message => msg, :level => :error,

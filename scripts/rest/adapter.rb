@@ -1,8 +1,4 @@
-$env.dbg "declaring rest module"
-
 module REST
-
-	$env.dbg "inside rest decl"
 
 	class Adapter
 	  attr_reader :uri
@@ -12,8 +8,8 @@ module REST
 	  def env
 	    $env
     end
-		def get
-			code, body = $env.get @uri.to_s, '', {}
+		def get(params={})
+			code, body = $env.get @uri.to_s, '', params
 			raise RestError.new(code, body) if code != 200
 			YAML.load body
 		end

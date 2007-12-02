@@ -48,11 +48,13 @@ class PGrid
 	def remap(uid, target)
 		@maps.each do |list|
 			regex, agent, sub = list
+			$env.dbg "grid: #{target} vs. /#{regex.source}/"
 			next unless regex =~ target
 			regex = /(#{uid})\/#{regex.source}/
 			uri = "#{uid}#{target}"
 			sub = "/#{agent}/#{sub}"
 			uri = uri.sub(regex, sub)
+			$env.dbg "grid remap: #{uri}"
 			return uri
 		end
 		"/cache/#{uid}#{target}"

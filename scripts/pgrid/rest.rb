@@ -10,6 +10,7 @@ store(/grid/, PGrid) do
 		get    { internal_redirect }
 		update { internal_redirect }
 		delete { internal_redirect }
+		# FIXME: need ability for POST here.
 	end
 	store(/links/) do
 		find  { entity.from_path }

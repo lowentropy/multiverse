@@ -65,7 +65,7 @@ module REST
 		end
 		%w(get put post delete).each do |verb|
 			define_method verb do
-				reply :code => 405
+				reply :code => 405, :body => "#{self} doesn't allow #{verb}"
 			end
 		end
 		private
