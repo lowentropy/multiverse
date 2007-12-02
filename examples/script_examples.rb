@@ -1,9 +1,11 @@
+require 'rubygems'
+require 'spec'
 require 'src/environment'
 require 'src/server'
 
 describe "Script" do
   before :each do
-		@server = Server.new :log => {:level => :fatal}, 'port' => 4000
+		@server = Server.new :log => {:level => :error}, 'port' => 4000
     @host = @server.localhost
 	end
 

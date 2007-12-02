@@ -96,12 +96,12 @@ module REST
 		end
 
 		# sub-pattern declaration
-		def entity(regex, klass, &block)
+		def entity(regex, klass=nil, &block)
 			@entities << [@visibility, Entity.new(klass, regex, &block)]
 		end
 
 		# sub-pattern declaration
-		def store(regex, klass, &block)
+		def store(regex, klass=nil, &block)
 			@stores << [@visibility, Store.new(klass, regex, &block)]
 		end
 

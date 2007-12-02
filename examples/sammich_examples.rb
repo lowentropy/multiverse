@@ -2,13 +2,14 @@ require 'rubygems'
 require 'spec'
 require 'src/environment'
 require 'src/server'
-require 'src/rest/rest'
 
 describe "Sammich" do
   before :each do
 		begin
-			@server = Server.new :log => {:level => :error}, 'port' => 4000
-			@host = @server.localhost
+			@server = Server.new :log => {:level => :debug}, 'port' => 4000
+			@server.sandbox do
+				use! 'rest', 'pgrid', 'sammich'
+			end
 		rescue Exception => e
 			puts e
 			puts e.backtrace
@@ -24,8 +25,6 @@ describe "Sammich" do
 	
 	it 'should load sammich agent' do
 		#pending 'sanity'
-		@server.load :test, {}, "scripts/sammich/agent.rb"
-		@server.start true, :test
 	end
 
 end

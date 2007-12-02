@@ -65,16 +65,18 @@ class Server < Mongrel::HttpHandler
 		scripts.each do |script|
 			load_script_into env, script
 		end
+		if @started
+			@log.info "starting environment #{env}"
+			send_to_pipe @pipes[env], Message.system(:start)
+		end
 	end
 
 	# load a script into an environment
 	def load_script_into(env, script, text=nil)
-		@log.debug "attempting to load #{script}"
+		@log.debug "loading script into #{env}: #{script}"
 		load_msg = Message.system(:load, :file => script, :text => text)
 		send_to_pipe @pipes[env], load_msg
-		@log.debug "sent load message" # XXX
 		reply = wait_for_reply_to load_msg
-		@log.debug "loaded #{script}"
 		raise reply[:error] if reply[:error]
 	end
 
@@ -299,6 +301,7 @@ class Server < Mongrel::HttpHandler
 		end
 		rval = []
 		Thread.new(@environments[:sandbox],block,rval) do |env,code,rval|
+			env.externalize_sandbox
 			rval << env.send(:sandbox, &code)
 		end.join
 		rval[0]
@@ -346,7 +349,7 @@ class Server < Mongrel::HttpHandler
 	# load a software agent
 	def load_agent(agent)
 		if @agents[agent.name]
-			@log.dbg "already loaded agent: #{agent.name}"
+			@log.debug "already loaded agent: #{agent.name}"
 			@agents[agent.name]
 		elsif agent.code.any?
 			@log.info "loading agent: #{agent.name}"

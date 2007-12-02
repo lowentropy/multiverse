@@ -1,4 +1,9 @@
+$env.dbg "declaring rest module"
+
 module REST
+
+	$env.dbg "inside rest decl"
+
 	class Adapter
 	  attr_reader :uri
 		def initialize(url)

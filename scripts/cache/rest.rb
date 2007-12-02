@@ -1,6 +1,5 @@
-# FIXME oh shit... use is being called before messaging is even started
-
 use! 'rest'
+include REST
 
 @cache = store(/cache/, Cache) do
 	attributes :size

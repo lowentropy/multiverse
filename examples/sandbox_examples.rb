@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'spec'
 require 'src/sandbox'
 
 describe "Sandbox" do

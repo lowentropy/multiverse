@@ -26,7 +26,6 @@ class Environment
 	def initialize(input=$stdin, output=$stdout, in_memory=false)
 		create_localizers
 		@pipe = MessagePipe.new input, output unless in_memory
-		@included = []
 		@inbox = []
 		@replies = []
 		@sandbox = Sandbox.new
@@ -35,7 +34,7 @@ class Environment
 		@classes = {}.taint
 		@functions = {}.taint
 		@start = false
-		@required = [].taint
+		@used = [].taint
 		@agents = {}.taint
 		@states = [].taint
 		@outbox = [].taint
@@ -93,7 +92,7 @@ class Environment
 	# let threads outside the default sandbox access our functions
 	# through $env.
 	def externalize_sandbox
-		@sandbox.chooser
+		$env = @sandbox.chooser
 	end
 
 	private
@@ -110,10 +109,10 @@ class Environment
 
 	# add script-accessible (unsafe) functions
 	def add_script_commands
-		%w(	map current_state req << [] []=
+		%w(	map current_state << [] []= exit?
 				require goto quit replied? use use!
 				state function fun reply pass err
-				private public params log dbg exit?
+				private public params log dbg include
 				entity behavior store listen agent
 				get put post delete).each do |cmd|
 			@sandbox.delegate cmd.to_sym, self
@@ -122,7 +121,7 @@ class Environment
 
 	# add script-accessible (unsafe) variables
 	def add_script_variables
-		%w(outbox classes functions required local_set
+		%w(outbox classes functions local_set
 		   states state).each do |var|
 			eval "@sandbox.instance_variable_set :@#{var}, @#{var}"
 		end
@@ -146,48 +145,20 @@ class Environment
 
 	# add a script to the environment
 	def add_script(name, text=nil)
-		untraced(2) do
-			# push previous require (depth-first order)
-			protect :required do
-				text ||= load_script name
-				@required = [].taint
-				# repeat until script and dependencies are loaded
-				while true
-					sandbox(:script => name, :text => text, :env => self) do
-						error = [].taint
-						Thread.new(@script, @text, error, self) \
-						do |script,text,error,box|
-							$env = box.chooser
-							$SAFE = 0
-							begin
-								box.untraced(0,3) do
-									begin
-										box.instance_eval text, script
-									rescue
-										box.rename_backtrace $!, '(toplevel)'
-										fail $!
-									end
-								end
-							rescue
-								error << $!
-							end
-						end.join
-						# bubble real errors
-						unless (error = error[0]).nil?
-							unless error.message == "require"
-								$stderr.puts format_err($!) if @superfatal
-								fail error
-							end
-						end
-					end
-					# load required files
-					break if @required.empty?
-					until @required.empty?
-						to_include = @required.shift
-						add_script to_include
-						@included << to_include
-					end
+		text ||= load_script name
+		sandbox(:script => name, :text => text, :env => self) do
+			error = [].taint
+			Thread.new(@script, @text, error, self) do |script,text,error,box|
+				$SAFE, $env = 0, box.chooser
+				begin
+					box.instance_eval text, script
+				rescue
+					error << $!
 				end
+			end.join
+			unless (error = error[0]).nil?
+				$stderr.puts format_err($!) if @superfatal
+				fail error
 			end
 		end
 	end
@@ -372,9 +343,14 @@ class Environment
 				shutdown!(message[:message_id])
 				@timeout = message[:timeout] # FIXME: ???
 			when :load then
-				dbg "calling add_script #{message[:file]}" # XXX
-				add_script message[:file], message[:text]
-				@outbox << [:loaded, nil, nil, message.params]
+				Thread.new(self, message) do |env,msg|
+					begin
+						env.add_script msg[:file], msg[:text]
+						env << [:loaded, nil, nil, msg.params]
+					rescue Exception => e
+						err format_err(e), msg[:message_id]
+					end
+				end
 			when :ping then
 				@outbox << [:pong, nil, nil, message.params]
 			when :mapped then nil
@@ -547,7 +523,7 @@ class Environment
 							next unless reply.replies_to? message
 							env.send :delete_reply, reply
 							result << reply
-							status << reply[:error] || :ok
+							status << (reply[:error] || :ok)
 							found = true
 							break
 						end
@@ -588,7 +564,6 @@ class Environment
     result, status = [], []
 		newp = params.merge({:body => body.to_s})
     $env << [verb, host, uri.path, newp, result, status]
-		wait_for_reply_to
     Thread.pass while result.empty?
     reply = result[0]
     [reply[:code], reply[:body]]
@@ -622,7 +597,7 @@ class Environment
 
 	# add something to the outbox
 	def <<(msg)
-		must_call_from_sandbox!
+		#must_call_from_sandbox!
 		sync :outbox do
 			@outbox << msg
 		end
@@ -633,15 +608,6 @@ class Environment
 		@state[0]
 	end
 
-	# require another file (depth-first order)
-	def req(script)
-		must_call_from_sandbox!
-		unless @included.include? script
-			@required << script
-			raise "require"
-		end
-	end
-
 	# require an agent to be loaded and include
 	# the agent library files in this environment
 	def use(*agents)
@@ -650,7 +616,7 @@ class Environment
 			result, status = [], []
 			msg = [:use, nil, nil, {:name => agent}, result, status]
 			@outbox << msg
-			Thread.pass while result.empty?
+			Thread.pass while status.empty?
 			ok &&= (status[0] == :ok)
 		end
 		ok
@@ -810,6 +776,11 @@ class Environment
 		@outbox << [:error, nil, nil, 
 			{	:message => msg, :level => :error,
 				:message_id => message_id}]
+	end
+
+	# include a module
+	def include(mod)
+		@sandbox.extend mod
 	end
 
 end

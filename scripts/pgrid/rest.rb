@@ -1,4 +1,5 @@
 use! 'rest'
+include REST
 
 store(/grid/, PGrid) do
 	attributes :prefix
@@ -18,7 +19,8 @@ store(/grid/, PGrid) do
 		end
 	end
 	behavior(/map/) do
-		@maps << [/#{params[:regex]}/, params[:agent], params[:sub]]
+		$env.dbg "MAP: #{params.inspect}" # XXX
+		parent.maps << [/#{params[:regex]}/, params[:agent], params[:sub]]
 	end
 end
 

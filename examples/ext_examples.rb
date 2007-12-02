@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'spec'
 require 'src/ext'
 
 describe "Ext" do

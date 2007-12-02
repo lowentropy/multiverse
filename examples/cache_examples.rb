@@ -6,8 +6,7 @@ require 'src/server'
 describe "Cache" do
   before :each do
 		begin
-			@server = Server.new :log => {:level => :debug}, 'port' => 4000
-			@host = @server.localhost
+			@server = Server.new :log => {:level => :error}, 'port' => 4000
 		rescue Exception => e
 			puts e
 			puts e.backtrace
@@ -16,6 +15,16 @@ describe "Cache" do
 		@server.sandbox do
 			use! 'rest', 'cache'
 			@cache = '/cache'.to_store
+			def cause(code, &block)
+				ok = false
+				begin
+					block.call
+				rescue Exception => e
+					/#{code}/.should =~ e.message
+					ok = true
+				end
+				ok.should == true
+			end
 		end
 	end
 
@@ -34,12 +43,14 @@ describe "Cache" do
   end
   
 	it "should add and get and delete item" do
-		pending "sanity"
+		# pending "sanity"
 		@server.sandbox do
 			uid = UID.random
 			item = @cache[uid]
-			
-			lambda { item.get }.should raise_error(REST::RestError, /404/)
+
+			cause(404) do
+				item.get
+			end
 			
 			item.put 'foo'
 			
@@ -51,12 +62,15 @@ describe "Cache" do
 			
 			@cache.size.get.should == 0
 			@cache.index.should == []
-			lambda { item.get }.should raise_error(REST::RestError, /404/)
+			
+			cause(404) do
+				item.get
+			end
 		end
 	end
 
 	it "should allow update by nobody" do	  
-		pending "sanity"
+		# pending "sanity"
 		@server.sandbox do
 			item = @cache[UID.random]
 			item.put 'foo'
@@ -67,7 +81,7 @@ describe "Cache" do
 	end
 	
 	it "should allow update by owner" do
-		pending "sanity"
+		# pending "sanity"
 		@server.sandbox do
 			item = @cache[UID.random]
 			item.put 'foo'
@@ -80,26 +94,28 @@ describe "Cache" do
 	end
 	
 	it "should not allow update by non owner" do
-		pending "sanity"
+		# pending "sanity"
 		@server.sandbox do
 			item = @cache[UID.random]
 			item.put 'foo', :owner => 'bob'
 			item.get.should == 'foo'
-			lambda { item.put('baz', :owner => 'ted') }.should \
-				raise_error(REST::RestError, /401/)
+			cause(401) do
+				item.put 'baz', :owner => 'ted'
+			end
 			item.get.should == 'foo'
 		end
 	end
 	
   it "should get uid of cache item" do
-		pending "sanity"
+		# pending "sanity"
 		@server.sandbox do
 			uid = UID.random
 			item = @cache[uid]
 			item.put
 			item.uid.get.should == uid
-			lambda { @cache[UID.random].uid.get }.should \
-				raise_error(REST::RestError, /404/)
+			cause(404) do
+				@cache[UID.random].uid.get
+			end
 		end
   end
 end

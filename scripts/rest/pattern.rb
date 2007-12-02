@@ -30,7 +30,7 @@ module REST
 		def attributes
 			@pattern.instance_variable_get :@attributes
 		end
-		# XXX i'm not sure if this is recommended... just for debugging...
+		# reply
 		def reply(*args)
 			$env.reply *args
 			true
