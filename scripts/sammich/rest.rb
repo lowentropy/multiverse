@@ -3,6 +3,9 @@ use! 'pgrid'
 include REST
 
 store(/sammich/, Sammich::Store) do
+	index do
+		reps.keys
+	end
 	find do |uid|
 		unless reps[uid]
 			reps[uid] = entity.from_path

@@ -13,7 +13,7 @@ describe "Sammich" do
 		end
 		@server.start
 		@server.sandbox do
-			use! 'rest', 'pgrid', 'sammich', 'sammich_sim'
+			use! 'rest', 'pgrid', 'sammich'
 			@grid = '/grid'.to_store
 		end
 	end
@@ -28,15 +28,6 @@ describe "Sammich" do
 	it 'should give an unknown uid 0 trust' do
 		@server.sandbox do
 			@grid[UID.random].rep.get.should == 0
-		end
-	end
-
-	%w(accept_complaints
-	   ).each do |action|
-		it('should ' + action.gsub(/_/,' ')) do
-			@server.sandbox do
-				"/sim/should_#{action}".to_behavior.call.should == true
-			end
 		end
 	end
 
