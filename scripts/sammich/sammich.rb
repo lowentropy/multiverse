@@ -32,16 +32,18 @@ module Sammich
 		def initialize(by, about)
 			@by, @about = by, about
 		end
-		def by?(uid)
-			@by == uid
+		def by?(obj)
+			@by == obj.uid
 		end
-		def about?(uid)
-			@about == uid
+		def about?(obj)
+			@about == obj.uid
 		end
 		def post_to(somewhere)
-			y = self.to_yaml
-			somewhere[by].complaints.post y
-			somewhere[about].complaints.post y
+			somewhere[by].complaints.post '', hash
+			somewhere[about].complaints.post '', hash
+		end
+		def hash
+			{:by => by, :about => about}
 		end
 	end
 
@@ -65,6 +67,7 @@ module Sammich
 			@complaints = @rep.get
 			@by, @about = [], []
 			@complaints.each do |c|
+				c = Complaint.new(c[:by], c[:about])
 				(c.by?(@uid) ? @by : @about) << c
 			end
 		end
@@ -113,13 +116,21 @@ module Sammich
 			@about = []
 			@by = []
 		end
-		def complaints(scope=:all)
+		# XXX: HACK
+		def reinit
+			@about, @by = [], []
+		end
+		def complaints(scope='/all')
+			scope = scope[1..-1]
+			scope = :all unless scope and scope.size > 0
 			case scope.to_s
 			when 'all' then @about + @by
 			when 'about' then @about
 			when 'by' then @by
-			else reply :code => 500, :body => "i don't know what that is"
-			end
+			else
+				reply :code => 500, :body => "i don't know what '#{scope}' is"
+				return
+			end.map {|c| c.hash}
 		end
 		def <<(complaint)
 			if complaint.by? self
@@ -127,7 +138,7 @@ module Sammich
 			elsif complaint.about? self
 				@about << complaint
 			else
-				reply :code => 500, :body => "keep me out of it"
+				reply :code => 500, :body => "keep me out of it!"
 			end
 		end
 	end

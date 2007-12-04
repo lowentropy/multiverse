@@ -3,7 +3,13 @@ use! 'pgrid'
 include REST
 
 store(/sammich/, Sammich::Store) do
-	find {|uid| reps[uid] ||= entity.from_path }
+	find do |uid|
+		unless reps[uid]
+			reps[uid] = entity.from_path
+			reps[uid].reinit
+		end
+		reps[uid]
+	end
 	entity(/(uid)/, Sammich::ServerRep) do
 		path :uid
 		# TODO: cache
@@ -14,7 +20,14 @@ store(/sammich/, Sammich::Store) do
 		store(/complaints/) do
 			path :trailing => :type
 			index { parent.complaints type }
-			add { parent << YAML.load(body) }
+			add do
+				by, about = params[:by], params[:about]
+				parent << Sammich::Complaint.new(by, about)
+			end
+			# FIXME: shouldn't be required to give an entity
+			entity(//) do
+				# eh?
+			end
 		end
 	end
 end

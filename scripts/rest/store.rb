@@ -181,7 +181,7 @@ module REST
 			end
 			nil
 		end
-
+		
 		# set the indexing behavior
 		def index(&block)
 			@index = [@visibility, block]

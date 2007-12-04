@@ -7,10 +7,10 @@ store(/grid/, PGrid) do
 	add			{|item| item.update }
 	entity(/(uid)/, Item) do
 		path :uid, :trailing => :target
-		get    { internal_redirect }
+		get { internal_redirect }
 		update { internal_redirect }
 		delete { internal_redirect }
-		# FIXME: need ability for POST here.
+		verb(:post) { internal_redirect }
 	end
 	store(/links/) do
 		find  { entity.from_path }

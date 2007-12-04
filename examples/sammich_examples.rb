@@ -6,7 +6,7 @@ require 'src/server'
 describe "Sammich" do
   before :each do
 		begin
-			@server = Server.new :log => {:level => :debug}, 'port' => 4000
+			@server = Server.new :log => {:level => :error}, 'port' => 4000
 		rescue Exception => e
 			puts e
 			puts e.backtrace
@@ -37,6 +37,22 @@ describe "Sammich" do
 			@server.sandbox do
 				"/sim/should_#{action}".to_behavior.call.should == true
 			end
+		end
+	end
+
+	it 'should remember complaints' do
+		@server.sandbox do
+			by, about = UID.random, UID.random
+			grid = '/grid'.to_store
+			hash = {:by => by, :about => about}
+			grid[by].complaints.post '', hash
+			grid[about].complaints.post '', hash
+			grid[by].complaints.get.should == [hash]
+			grid[about].complaints.get.should == [hash]
+			grid[by].complaints.by.get.should == [hash]
+			grid[about].complaints.about.get.should == [hash]
+			grid[by].complaints.about.get.should == []
+			grid[about].complaints.by.get.should == []
 		end
 	end
 
