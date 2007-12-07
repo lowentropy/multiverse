@@ -20,7 +20,6 @@ store(/grid/, PGrid) do
 		end
 	end
 	behavior(/map/) do
-		$env.dbg "MAP: #{params.inspect}" # XXX
 		parent.maps << [/#{params[:regex]}/, params[:agent], params[:sub]]
 	end
 end

@@ -51,7 +51,7 @@ module Sammich
 		attr_reader :uid
 		def initialize(uid)
 			@uid = uid
-			@rep = "/sammich/#{@uid}/complaints".to_store
+			@rep = "/grid/#{@uid}/complaints".to_store
 		end
 		def trust?
 			reputation > 0

@@ -15,8 +15,7 @@ store(/sammich/, Sammich::Store) do
 	end
 	entity(/(uid)/, Sammich::ServerRep) do
 		path :uid
-		# TODO: cache
-		entity(/rep/) do
+		entity(/rep/) do # TODO: cache
 			get { parent.reputation }
 		end
 		update { complaints.post }
