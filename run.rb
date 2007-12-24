@@ -1,6 +1,8 @@
 $: << 'src'
 require 'server'
 
+# comment
+
 @server = Server.new :log => {:level => :debug}, 'port' => 4000
 @server.start
 @server.sandbox do
