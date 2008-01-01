@@ -1,0 +1,66 @@
+<html>
+	<head>
+		<title>Sammich Test</title>
+		<script src="prototype.js"></script>
+		<script src="effects.js"></script>
+		<script src="dragdrop.js"></script>
+		<script src="controls.js"></script>
+		<script src="application.js"></script>
+		<script language="javascript">
+			function get_into(id, url)
+			{
+				new Ajax.Updater(id, url, {method: 'get'});
+			}
+			function do_post(id, url, params)
+			{
+				new Ajax.Updater(id, url, {parameters: params});
+			}
+			function new_uid(id)
+			{
+				get_into(id, '/util/random_uid');
+			}
+			function get_uids(id)
+			{
+				get_into(id, '/sammich/');
+			}
+			function complain()
+			{
+				var by = $('by').firstChild.nodeValue;
+				var about = $('about').firstChild.nodeValue;
+				do_post('status', '/sammich/' + by + '/complaints', {by: by, about: about});
+				do_post('status', '/sammich/' + about + '/complaints', {by: by, about: about});
+			}
+			function swap()
+			{
+				var by = $('by').firstChild.nodeValue;
+				var about = $('about').firstChild.nodeValue;
+				$('by').firstChild.nodeValue = about;
+				$('about').firstChild.nodeValue = by;
+			}
+		</script>
+	</head>
+	<body>
+		<table border="1px">
+			<tr align="center">
+				<td><b>By</b></td>
+				<td><b>About</b></td>
+			</tr>
+			<tr>
+				<td id="by"></td>
+				<td id="about"></td>
+			</tr>
+			<tr>
+				<td><button onclick="new_uid('by')">refresh</button></td>
+				<td><button onclick="new_uid('about')">refresh</button></td>
+			</tr>
+		</table>
+		<br/>
+		<button onclick="swap()">swap</button>
+		<hr/>
+		<button onclick="complain()">complain!</button><br/>
+		<p id="status"></p>
+		<hr/>
+		List of known uids: <p id="uids"></p>
+		<button onclick="get_uids('uids')">refresh</button>
+	</body>
+</html>

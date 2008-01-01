@@ -19,18 +19,16 @@ class Agent
 			@agent.instance_variable_set :@code, self.class.read(files)
 		end
 		def self.read(files)
-			map = {}
-			files.each do |file|
-				map[file] = File.read file
+			files.map do |file|
+				[file, File.read(file)]
 			end
-			map
 		end
 	end
 	attr_reader :name, :uid, :version, :libs, :code
 	def initialize(name=nil, &block)
 		@name = name
-		@libs = {}
-		@code = {}
+		@libs = []
+		@code = []
 		@uid = nil
 		@version = nil
 		Reader.new(self).instance_exec &block if block

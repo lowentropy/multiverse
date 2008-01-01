@@ -70,7 +70,7 @@ class Sandbox
 	# rename entries in a stack trace
 	def rename_backtrace(error, name, from="`add_script'")
 		this = error.backtrace.find {|line| /#{from}/ =~ line}
-		return unless this # XXX untraced is probably all fux0red
+		return unless this # XXX untraced is probably fubar
 		index = error.backtrace.index this
 		error.backtrace[index].gsub! /`.*'/, "`#{name}'"
 	end

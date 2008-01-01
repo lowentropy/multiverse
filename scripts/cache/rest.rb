@@ -1,4 +1,5 @@
 use! 'rest'
+include REST
 
 @cache = store(/cache/, Cache) do
 	attributes :size
