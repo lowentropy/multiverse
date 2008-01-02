@@ -1,3 +1,6 @@
+use! 'rest'
+include REST
+
 fun(:start) { quit }
 
 class Foo

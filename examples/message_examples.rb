@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'spec'
 require 'src/message'
 
 describe Message do

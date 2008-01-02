@@ -1,4 +1,7 @@
 use! 'pgrid'
+use! 'rest'
+
+include REST
 
 class Solver
 	def initialize

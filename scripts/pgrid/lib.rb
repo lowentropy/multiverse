@@ -1,12 +1,13 @@
 # Convert URL into a grid adapter
-class String
+class ::String
 	def to_grid
 		class << self
 			# register a url map with the grid
 			def map(agent, maps=nil)
 				maps ||= {(/#{agent}/) => '\1'}
 				maps.each do |regex,sub|
-					"#{self}/map".to_rest.post	:regex => regex.source,
+					"#{self}/map".to_rest.post	'',
+																			:regex => regex.source,
 																			:agent => agent.to_s,
 																			:sub => sub
 				end
@@ -26,6 +27,8 @@ end
 
 # The PGrid Root Collection
 class PGrid
+	
+	attr_reader :maps
 
 	# start by accepting all uids
 	def initialize
@@ -45,11 +48,14 @@ class PGrid
 	def remap(uid, target)
 		@maps.each do |list|
 			regex, agent, sub = list
+			$env.dbg "grid: #{target} vs. /#{regex.source}/"
 			next unless regex =~ target
 			regex = /(#{uid})\/#{regex.source}/
-			uri = "#{uid}/#{target}"
+			uri = "#{uid}#{target}"
 			sub = "/#{agent}/#{sub}"
-			return uri.sub(regex, sub)
+			uri = uri.sub(regex, sub)
+			$env.dbg "grid remap: #{uri}"
+			return uri
 		end
 		"/cache/#{uid}#{target}"
 	end

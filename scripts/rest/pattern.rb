@@ -30,7 +30,7 @@ module REST
 		def attributes
 			@pattern.instance_variable_get :@attributes
 		end
-		# XXX i'm not sure if this is recommended... just for debugging...
+		# reply
 		def reply(*args)
 			$env.reply *args
 			true
@@ -65,7 +65,12 @@ module REST
 		end
 		%w(get put post delete).each do |verb|
 			define_method verb do
-				reply :code => 405
+				if @pattern.verbs[verb]
+					value = instance_exec(&@pattern.verbs[verb][1])
+					reply :body => @pattern.render(value) unless $env.replied?
+				else
+					reply :code => 405, :body => "#{self} doesn't allow #{verb}"
+				end
 			end
 		end
 		private
@@ -94,7 +99,7 @@ module REST
   # pattern root class
   class Pattern
 
-    attr_reader :regex, :parts
+    attr_reader :regex, :parts, :verbs
 
     def initialize(regex, *actions)
       @regex = regex.replace_uids
@@ -102,6 +107,7 @@ module REST
       @actions = actions
 			@attributes = []
 			@parts = []
+			@verbs = {}
     end
 
 		# take the API definition and send messages to the environment, and
@@ -292,6 +298,10 @@ module REST
     def public
       @visibility = :public
     end
+
+		def verb(v, &block)
+			@verbs[v.to_s] = [@visibility, block]
+		end
 
 		# set visibility
     def private

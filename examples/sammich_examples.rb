@@ -2,16 +2,19 @@ require 'rubygems'
 require 'spec'
 require 'src/environment'
 require 'src/server'
-require 'src/rest/rest'
 
 describe "Sammich" do
   before :each do
 		begin
 			@server = Server.new :log => {:level => :error}, 'port' => 4000
-			@host = @server.localhost
 		rescue Exception => e
 			puts e
 			puts e.backtrace
+		end
+		@server.start
+		@server.sandbox do
+			use! 'rest', 'pgrid', 'sammich'
+			@grid = '/grid'.to_store
 		end
 	end
 
@@ -22,10 +25,26 @@ describe "Sammich" do
   # rescue Mongrel::StopServer => e
 	end
 	
-	it 'should load sammich agent' do
-		#pending 'sanity'
-		@server.load :test, {}, "scripts/sammich/agent.rb"
-		@server.start true, :test
+	it 'should give an unknown uid 0 trust' do
+		@server.sandbox do
+			@grid[UID.random].rep.get.should == 0
+		end
+	end
+
+	it 'should remember complaints' do
+		@server.sandbox do
+			by, about = UID.random, UID.random
+			grid = '/grid'.to_store
+			hash = {:by => by, :about => about}
+			grid[by].complaints.post '', hash
+			grid[about].complaints.post '', hash
+			grid[by].complaints.get.should == [hash]
+			grid[about].complaints.get.should == [hash]
+			grid[by].complaints.by.get.should == [hash]
+			grid[about].complaints.about.get.should == [hash]
+			grid[by].complaints.about.get.should == []
+			grid[about].complaints.by.get.should == []
+		end
 	end
 
 end

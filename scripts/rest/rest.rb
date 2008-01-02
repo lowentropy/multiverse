@@ -1,5 +1,5 @@
 # RESTful extensions
-class String
+class ::String
 	def to_rest
 		REST::Adapter.new(self)
 	end
