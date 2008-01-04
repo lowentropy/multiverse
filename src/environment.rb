@@ -28,11 +28,9 @@ class Environment
 		@pipe = MessagePipe.new input, output unless in_memory
 		@inbox = []
 		@replies = []
-		@sandbox = Sandbox.new
-		@mutex = Mutex.new
-		@state = [:global].taint
-		@classes = {}.taint
-		@functions = {}.taint
+		@state = :global
+		@classes = {}
+		@functions = {}
 		@start = false
 		@used = [].taint
 		@agents = {}.taint
@@ -50,21 +48,6 @@ class Environment
 		add_script_commands
 		add_script_variables
 	end
-
-	# accessor for thread-local storage
-	def [](name)
-		@local_get.call name
-	end
-
-	# accessor for thread-local storage
-	def []=(name, value)
-		if name.to_s == 'sandbox_id' and $SAFE > 0
-			raise "can't swap sandboxes" 
-		end
-		@local_set.call name => value
-	end
-
-	private
 
 	# create procs which are at $SAFE=0 than get and set
 	# any instance variables on the current thread that
@@ -89,12 +72,6 @@ class Environment
 		@pipe = type.constantize.new input, output
 	end
 
-	# let threads outside the default sandbox access our functions
-	# through $env.
-	def externalize_sandbox
-		$env = @sandbox.chooser
-	end
-
 	private
 
 	# start IO processing threads
@@ -107,17 +84,13 @@ class Environment
 		end
 	end
 
-	# add script-accessible (unsafe) functions
-	def add_script_commands
+	@@old_cmds = \
 		%w(	map current_state << [] []= exit?
 				require goto quit replied? use use!
 				state function fun reply pass err
 				private public params log dbg include
 				entity behavior store listen agent
-				get put post delete).each do |cmd|
-			@sandbox.delegate cmd.to_sym, self
-		end
-	end
+				get put post delete)
 
 	# add script-accessible (unsafe) variables
 	def add_script_variables
