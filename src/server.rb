@@ -6,12 +6,7 @@ require 'rubygems'
 require 'net/http'
 require 'mongrel'
 require 'socket'
-require 'environment'
 require 'config'
-require 'agent'
-require 'debug'
-require 'agent'
-require 'host'
 require 'uri'
 require 'ext'
 
@@ -20,208 +15,82 @@ include Net
 # The multiverse server. Runs Mongrel.
 class Server < Mongrel::HttpHandler
 
-	include Debug
 	include Configurable
 
 	attr_reader :localhost
 
 	# set up server state and load configuration.
 	def initialize(options={})
-		@pipes = {}
-		@maps = {}
-		@ports = {}
-		@agents = {}
-		@env_port = 4000
-		@environments = {}
-		@pipe_threads = []
-		@env_replies = []
-		@min_error_code = 500
+		load_configuration
+		@scripts = []
+		@routes = []
+		@status = {}
+		@running = false
+		@stopping = false
+	end
+	
+	# load configuration settings
+	def load_configuration
+		@base = File.expand_path(File.dirname(__FILE__) + '/../config')
+		Configurable.base = @base
 
-		Configurable.base = File.expand_path(File.dirname(__FILE__) + '/../config')
 		config_file 'host.config', 'host'
 		config_log config['address'], options[:log]
 		config_options options
 		config_default(
 			'port' => 4000,
-			'wait_timeout' => 5.0,
-			'default_lang' => 'ruby',
-			'default_env' => 'host',
-			'default_environment_mode' => 'mem')
-
-		@log.debug "port = #{config['port']}"
-		@log.debug "log = #{config['log'].inspect}"
-		@localhost = Host.new(nil, ['localhost', config['port']])
+			'wait_timeout' => 5.0)
 	end
 
-	# load a script into an environment. start the
-	# environment if it doesn't exist yet. this
-	# function will block until an error occurs or
-	# the scripts are loaded
-	def load(env=config['default_env'].to_sym, options={}, *scripts)
-		unless @pipes[env]
-			@log.debug "creating new env #{env}"
-			create(env, options)
-			@log.debug "created env #{env}"
-		end
-		scripts.each do |script|
-			load_script_into env, script
-		end
-		if @started
-			@log.info "starting environment #{env}"
-			send_to_pipe @pipes[env], Message.system(:start)
-		end
-	end
-
-	# load a script into an environment
-	def load_script_into(env, script, text=nil)
-		@log.debug "loading script into #{env}: #{script}"
-		load_msg = Message.system(:load, :file => script, :text => text)
-		send_to_pipe @pipes[env], load_msg
-		reply = wait_for_reply_to load_msg
-		raise reply[:error] if reply[:error]
+	# immediately abort execution 
+	def abort
+		@log.fatal "aborted: shutting down"
+		stop
+		join 0.1
 	end
 
 	# start the server; also trap user interrupts.
-	def start(pad=true, external=nil)
-		sleep 0.5 if pad
-		@shutdown = false
+	def start
+		raise 'already started' if @running
 		@http = Mongrel::HttpServer.new '0.0.0.0', config['port'].to_s
 		@http.register "/", self
 		@thread = @http.run
-		trap('INT') do
-			@log.fatal "interrupted: shutting down"
-			shutdown
-			join 0.5
-		end
-		@started = true
-		@pipes.each do |env,pipe|
-			@log.info "starting environment #{env}"
-			send_to_pipe pipe, Message.system(:start)
-		end
-		sleep 0.5 if pad
-		if external || @environments[:host]
-			env = @environments[external || :host]
-			raise "no external environment to load: #{external}" unless env
-			env.externalize_sandbox
-		end
+		trap('INT') { self.abort }
+		@running = true
 	end
 
 	# shut down the server
-	def shutdown
+	def stop
 		@http.stop if @http
-		@environments.keys.each do |env|
-			next unless @pipes[env]
-			@log.debug "sending quit to #{env}"
-			send_to_pipe @pipes[env], Message.system(:quit, :timeout => 1)
-		end
-		@log.info "waiting for environments to complete"
-		while @environments.any?
-			@log.debug "remaining environments: #{@environments.keys.inspect}"
-			sleep 1
-		end
-		@log.info "all environments now complete"
-		@shutdown = true
+		@stopping = true
 	end
 
 	# join w/ the server thread
 	def join(timeout=nil)
-		until @pipe_threads.empty?
-			@log.debug "waiting for pipe thread..."
-			thread = @pipe_threads.shift
-			thread.join timeout if thread
-			@log.debug "pipe thread done."
-		end
-		@log.debug "waiting for main thread..."
 		@thread.join timeout if @thread
-		@log.debug "main thread done."
-		@started = false
+		@running = false
+		@stopping = false
 	end
 
-	# issue an external GET request
-  def get(*params)
-    handle_request :get, *params
-  end
-
-	# issue an external PUT request
-  def put(*params)
-    handle_request :put, *params
-  end
-
-	# issue an external POST request
-  def post(*params)
-    handle_request :post, *params
-  end
-
-	# issue an external DELETE request
-  def delete(*params)
-    handle_request :delete, *params
-  end
-
-	# process HTTP request.
-	# THIS MUST BE PUBLIC because it is called from Mongrel.
-	# TODO add a public wrapper that checks the caller
+	# MONGREL: process HTTP request.
 	def process(request, response)
-		debug 'server.process' do
-			begin
-				code, body = handle request
-			rescue Exception => e
-				@log.error e
-				code, body = 500, e.message
-			end
-			response.start(code) do |head,out|
-				out.write body
-			end
-		end
-	end
-
-	private
-
-	# handle a pipe's IO until shutdown
-	def pipe_main(name, pipe)
 		begin
-			until @shutdown
-				break if pipe.closed?
-				next unless (msg = next_message(pipe))
-				start_handler name, pipe, msg
-				Thread.pass unless @shutdown
-			end
-			pipe.close
+			code, body = handle_http request
 		rescue Exception => e
-			@log.fatal e
-			shutdown
-			join 0
+			@log.error e
+			code, body = 500, e.message
+		end
+		response.start(code) do |head,out|
+			out.write body
 		end
 	end
-
-	# read the next message from the input stream
-	def next_message(pipe)
-		begin
-			pipe.read
-		rescue IOError => e
-			@log.info "pipe closed"
-			return nil
-		end
-	end
-	
-	# start a handler thread for a received message
-	def start_handler(name, pipe, msg)
-		Thread.new(self,msg) do |srv,msg|
-			reply = begin
-				srv.send :handle_msg, name, msg
-			rescue Exception => e
-				Message.system(:reply, :error => e.message)
-			end
-			srv.send :send_to_pipe, pipe, reply if reply
-		end
-	end
-
 
 	# issue an HTTP request. this function will block until some
 	# respose is received. returns [code, body].
-  def handle_request (verb, host, path, *rest)
-		body, params = (rest.shift || ''), (rest.shift || {})
+  def send_request(verb, url, body, params, timeout)
 		request = create_request(verb, path, body, params)
-		response = Net::HTTP.start(*host.info) do |http|
+		uri = URI.parse url
+		response = Net::HTTP.start(uri.host, uri.port) do |http|
 			http.request request
 		end
 		[response.code.to_i, response.body]
@@ -241,280 +110,60 @@ class Server < Mongrel::HttpHandler
 		request
 	end
 
-	# get next available script port
-	def next_port
-		@env_port += 1
-	end
-
-	# add an environment and its pipe. name the env.
-	def add_env(name, env, pipe)
-		@pipes[name] = pipe
-		@environments[name] = env
-		env.name = name if env
-	end
-
-	public
-
-	# create a new environment by some selected mode
-	def create(name=config['default_env'].to_sym, options={})
-		mode = options[:mode] || config['default_environment_mode']
-		send "create_#{mode}", name, options
-	end
-
-	private
-
-	# create an environment in a new process attached via socket
-	def create_net(name=config['default_env'].to_sym, options={})
-		IO.popen(script_command("--port #{@ports[name] ||= next_port}"))
-		sleep 1
-		create_io name, TCPSocket.new('127.0.0.1', @ports[name]), options
-	end
-
-	# create an environment that we load and talk to natively (fastest)
-	def create_mem(name=config['default_env'].to_sym, options={})
-		attach Environment.new(nil, nil, true), name
-	end
-
-	public
-
-	# hook an in-memory environment into this server
-	def attach(env, name=config['default_env'].to_sym)
-		in_buf, out_buf = Buffer.new, Buffer.new
-		pipe = MemoryPipe.new in_buf, out_buf
-		pipe.debug = env.instance_variable_get :@superfatal
-		env.set_io out_buf, in_buf, 'MemoryPipe'
-		add_env name, env, pipe
-		start_pipe_thread name, pipe
-	end
-
-	# create a temporary sandbox and execute the code
-	def sandbox(&block)
-		unless @environments[:sandbox]
-			create :sandbox, :mode => :mem
-			load_script_into :sandbox, '(inline)', <<-END
-				fun(:start) { quit }
-			END
-			@environments[:sandbox].sandbox_check = false
-			if @started
-				send_to_pipe @pipes[:sandbox], Message.system(:start) 
-				@log.info "started sandbox environment"
-			end
-		end
-		rval = []
-		Thread.new(@environments[:sandbox],block,rval) do |env,code,rval|
-			env.externalize_sandbox
-			rval << env.send(:sandbox, &code)
-		end.join
-		rval[0]
-	end
-
-	private
-
-	# get the command for running a script
-	def script_command(arguments="", options={})
-		path = File.dirname(__FILE__)
-		lang = options[:lang] || config['default_lang'].to_sym
-		command = case lang
-			when :ruby then "ruby #{path}/ruby-script.rb #{arguments}"
-			else raise "unknown script language #{lang}"
-		end
-	end
-
-	# create an environment in a new process attached via FIFO
-	def create_fifo(name=config['default_env'].to_sym, options={})
-		command = script_command "| tee .out"
-		create_io name, IO.popen(command, 'w+'), options
-	end
-
-	# create a new environment attached to the given IO pipe
-	def create_io(name, io, options={})
-		pipe = MessagePipe.new io, io
-		add_env name, nil, pipe
-		start_pipe_thread name, pipe
-	end
-
-	# same as in Environment
-	def agent(name, &block)
-		Agent.new(name, &block)
-	end
-
-	# find an agent of this name
-	def find_agent(name)
-		# FIXME this is BAD. use an env.
-		eval File.read("scripts/#{name}/agent.rb")
+	# handle a message from the pipe
+	def handle_script_request(script, command, params, sync)
+		return nil if @stopping
+		send command, script, params
 	rescue
 		@log.error $!
-		nil
-	end
-
-	# load a software agent
-	def load_agent(agent)
-		if @agents[agent.name]
-			@log.debug "already loaded agent: #{agent.name}"
-			@agents[agent.name]
-		elsif agent.code.any?
-			@log.info "loading agent: #{agent.name}"
-			env = agent.name.to_sym
-			create env
-			[agent.libs, agent.code].each do |list|
-				list.each do |lib|
-					file, code = lib
-					load_script_into env, file, code
-				end
-			end
-			@log.info "loaded agent: #{agent.name}"
-			if @started
-				send_to_pipe @pipes[env], Message.system(:start) 
-				@log.info "started agent: #{agent.name}"
-			end
-			test env
-			@agents[agent.name] = env
-		else
-			@log.info "loaded agent with no environment: #{agent.name}"
-			nil
-		end
-	end
-
-	# make sure an environment is alive
-	def test(env)
-		msg = Message.system(:ping)
-		send_to_pipe @pipes[env], msg
-		wait_for_reply_to msg
-		@log.debug "#{env}: ping!"
-	end
-
-	# start a handler thread for the given message pipe
-	def start_pipe_thread(name, pipe)
-		@pipe_threads << Thread.new(self, name, pipe) do |server,name,pipe|
-			server.send :pipe_main, name, pipe
-		end
-	end
-
-	# handle a message from the pipe
-	def handle_msg(name, msg)
-		return nil if @shutdown
-		return nil unless msg
-
-		case msg.command
-		# inline error responses
-		when :no_command, :no_path, :ambiguous_path
-			msg[:code] = 500
-			msg[:error] = "#{msg.command.to_s.gsub(/_/,' ')}: #{msg[:path]}"
-			@log.debug "#{msg[:error]} #{msg.params.inspect}"
-			@env_replies << msg
-
-		# load a software agent
-		when :load_agent
-			agent = YAML.load(msg[:agent])
-			env = load_agent agent
-			return Message.new(:reply, msg.host, msg.url,
-				{	:message_id => msg[:message_id],
-					:environment => env })
-
-		# load a software agent AND load its library
-		# scripts into the calling environment
-		when :use
-			agent = find_agent msg[:name]
-			raise "can't find agent #{msg[:name]}" unless agent
-			env = load_agent agent
-			@log.debug "env for agent #{msg[:name]} is #{env}"
-			agent.libs.each do |lib|
-				file, code = lib
-				load_script_into name, file, code
-			end
-			return Message.new(:reply, msg.host, msg.url,
-				{	:message_id => msg[:message_id],
-					:environment => env })
-
-		# 404 error response from environment
-		when :not_found
-			msg[:code] = 404
-			msg[:body] = "not found: #{msg[:path]}"
-			@log.debug "#{msg[:error]} #{msg.params.inspect}"
-			@env_replies << msg
-
-		# requests to other hosts are handled inline
-		when :get, :put, :post, :delete
-			host = msg.host.host ? msg.host : @localhost
-			code, body = send msg.command, host, msg.url, msg.params.delete(:body), msg.params
-			return Message.new(:reply, msg.host, msg.url, {:code => code, :body => body, :message_id => msg[:message_id]})
-
-		# replies are handled by another thread
-		when :reply, :loaded, :pong
-			@env_replies << msg
-
-		# script url map command
-		when :map
-			return map(name, msg.params[:regex])
-
-		# out-of-band bookkeeping
-		when :log, :error
-			level = msg[:level] || :info
-			send "env_#{msg.command}", name, msg[:message], level
-			@env_replies << msg
-
-		# status messages
-		when :started, :quit
-			env_log name, "environment #{msg.command}: #{msg[:message]}"
-			remove_env name if msg.command == :quit
-		end
-
-		nil
-	rescue Exception => e
-		@log.error e
 		fail
 	end
 
-	# remove the env from active status
-	def remove_env(name)
-		@environments.delete name
-		@pipes.delete(name).close
-	end
-
 	# map a url regex to an environment handler id
-	def map(name, regex)
-		# FIXME: there should be scope restrictions for security
-		@maps[regex] = name
-		@log.info "mapped #{regex.source} to #{name}"
-		Message.system(:mapped, :status => :ok)
+	def map(script, params)
+		@routes[params[:id]] [script, params[:regex]]
+		{}
 	end
 
-	# error from the environment
-	def env_err(name, msg, level)
-		@log.send level, "#{name}: #{msg}"
-	end
-	alias :env_error :env_err
-
-	# log message from the environment
-	def env_log(name, msg, level=:info)
-		@log.send level.to_s, "#{name}: #{msg}"
+	# update script status
+	def status(script, params)
+		@status[script] = params[:status]
+		{}
 	end
 
-	# send a message through a local pipe
-	def send_to_pipe(pipe, message)
-		return unless pipe
-		pipe.write message
+	# output script log
+	def log(script, params)
+		@log.send params[:level], params[:message]
+		{}
 	end
 
 	# handle an HTTP request; return code, body
-	def handle(request)
-		debug 'handle' do
-			info = request_info request
-			method, url = info[:method], info[:path]
-			env = handler_for url
-			return [404, "#{method} #{url}"] unless env
-			handle_with request, env
+	def handle_http(request)
+		method, path, body, params = request_info request
+		script, id = route path
+		if script
+			script.handle id, path, body, params, request.params
+		else
+			{:code => 404, :body => "#{method}: no route to #{url}"}
 		end
+	end
+
+	# find script and handler id for path
+	def route(path)
+		@routes.each do |id,pair|
+			script, regex = pair
+			return [script, id] if regex =~ path
+		end
+		[nil, nil]
 	end
 
 	# get information about the request
 	def request_info(request)
 		body = read_body(request.body)
 		body, params = request_body_params(request, body)
-		{	:method	=> request.params['REQUEST_METHOD'].downcase.to_sym,
-			:path		=> URI.parse(request.params['REQUEST_PATH']),
-			:body		=> body,
-			:params	=> params }
+		method = request.params['REQUEST_METHOD'].downcase.to_sym
+		path = request.params['REQUEST_PATH']
+		[method, path, body, params]
 	end
 
 	# read the body from a mongrel request
@@ -528,83 +177,25 @@ class Server < Mongrel::HttpHandler
 
 	# get form params from request
 	def request_body_params(request, body)
-		body, to_decode =
-			if /encoded/i =~ request.params['CONTENT_TYPE']
-				[nil, body || '']
-			else
-				uri = request.params['REQUEST_URI']
-				idx = uri.rindex '?'
-				[body, idx ? uri[idx+1..-1] : '']
-			end
-
-		params = {}
-		to_decode.split('&').each do |pair|
+		body, encoded, params = strip_request_params request, {}
+		encoded.split('&').each do |pair|
 			key, val = pair.split('=').map {|s| URI.decode(s)}
 			params[key] = val
 		end
-
 		[body, params]
 	end
 
-	# handle request with given environment
-	def handle_with(request, env)
-		info = request_info request
-		method, url = info[:method], info[:path]
-		body, params = request_body_params(request, info[:body])
-		params.merge!({:method => method, :body => body})
-
-		@log.debug "calling #{env.inspect}'s handler for #{url}"
-		msg = Message.new(:action, @localhost, url, params)
-		send_to_pipe @pipes[env], msg
-		reply = wait_for_reply_to msg
-		# FIXME: i don't like this inconsistency
-		if reply[:error]
-			reply[:code] = 500
-			reply[:body] = reply[:error]
-		end
-		env_err env, reply[:body], :error if reply[:code] >= @min_error_code
-		[reply[:code], reply[:body]]
-	end
-
-	# check if a request has taken too long
-	def timed_out?(time)
-		(Time.now - time) > config['wait_timeout']
-	end
-
-	# wait for an environment to reply to a request
-	# reply returned must respond to [:code] and [:body]
-	def wait_for_reply_to(msg)
-		begin
-			start_time = Time.now
-			until @shutdown or timed_out?(start_time)
-				@env_replies.each do |reply|
-					if reply.id == msg.id
-						@env_replies.delete reply
-						return reply
-					end
-				end
-				sleep 0.05
-			end
-		rescue Exception => e
-			return {:code => 500, :body => "unexpected error: #{e}"}
-		end
-		if @shutdown
-			return {:code => 500, :body => "server shutdown before reply"}
+	# strip request params from request; take them from the body if
+	# content-type is url-encoded; otherwise, take them from the
+	# request uri. returns [body, encoded_params]
+	def strip_request_params(request, body)
+		if /encoded/i =~ request.params['CONTENT_TYPE']
+			[nil, body || '']
 		else
-			return {:code => 500, :body => "timed out", :error => "timed out"}
+			uri = request.params['REQUEST_URI']
+			idx = uri.rindex '?'
+			[body, idx ? uri[idx+1..-1] : '']
 		end
-	end
-
-	
-	# find the handler for the given url
-	def handler_for(url)
-		@maps.each do |regex,value|
-			if regex.match_all? url.path.split('/')[1]
-				@log.debug "#{url} maps to #{value} via /#{regex.source}/"
-				return value
-			end
-		end
-		nil
 	end
 
 end

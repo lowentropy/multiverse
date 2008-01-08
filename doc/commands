@@ -1,0 +1,37 @@
+state :loading do
+	provides do
+		:sammich
+	end
+	requires do
+		:pgrid
+	end
+end
+
+script -> mv commands:
+ log: level, message
+ http: verb, url, body, params, timeout
+ map: regex, id
+ unmap: id
+
+mv -> script commands:
+ load: name, text
+ reset: 
+ quit:
+ run:
+ pause:
+ abort:
+ handle: id, path, body, params, headers
+
+mv functions (internal):
+ init: [noblock] set up
+ send_out: [noblock] put message on outbox
+ read_in: [noblock] get message to inbox
+ sync: [blocks] synchronous request
+ async: [noblock] async request
+ wait_for: [blocks] wait for response
+
+mv functions (external):
+ get,put,post,delete: [blocks] send http request
+ map: [blocks] route message to block
+ unmap: [blocks] delete route
+ log: [noblock] send a log message
