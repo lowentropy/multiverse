@@ -3,11 +3,14 @@ require 'spec'
 require 'src/script'
 
 describe "Scripts" do
+
+	before :each do
+		@script = Script.new
+	end
 	
   it 'should remember state info' do
-		s = Script.new
-		s.eval %{
-			state :a do
+		@script.eval %{
+			state :default do
 				start do
 					unless @next
 						@next = true
@@ -18,45 +21,58 @@ describe "Scripts" do
 			end
 			state :b do
 				start do
-					goto :a
+					goto :default
 				end
 			end
 		}
-		s.run.should == 216
+		@script.run.should == 216
 	end
 
-	it 'should reset at define-time' do
-		s = Script.new
-		s.eval %{
-			state :a do
-				start do
-					1
-				end
+	it 'should allow explicit states' do
+		@script.state :default do
+			start do
+				goto :b
 			end
-			reset
-			state :b do
-				start do
-					2
-				end
+		end
+		@script.state :b do
+			start do
+				216
 			end
-		}
-		s.run.should == 2
+		end
+		@script.run.should == 216
 	end
 
 	it 'should not remember definer methods' do
-		s = Script.new
-		s.eval %{
-			state :a do
+		@script.eval %{
+			state :default do
 				start do
 					reset
 					start do
 						216
 					end
-					goto :a
+					goto :default
 				end
 			end
 		}
-		proc {s.run}.should raise_error
+		proc {@script.run}.should raise_error
+	end
+
+	it 'should not evaluate code after a goto' do
+		@script.eval %{
+			state :default do
+				start do
+					unless @ran
+						@ran = true
+						goto :default
+						raise 'error'
+					end
+					216
+				end
+			end
+		}
+		proc do
+			@script.run.should == 216
+		end.should_not raise_error
 	end
 
 end
