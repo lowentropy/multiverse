@@ -2,29 +2,10 @@ $: << File.dirname(__FILE__)
 
 require 'net/http'
 require 'uri'
-require 'untrace'
-require 'yaml'
 
 # Extensions to object to include instance_exec
 class Object
 	
-	include Untrace
-
-	@@define_iec = proc do |block|
-		begin
-			old_c, Thread.critical = Thread.critical, true
-			n = 0; n += 1 while respond_to?(name = "__instance_exec#{n}")
-			InstanceExecHelper.module_eval { define_method(name, &block) }
-			return name
-		ensure
-			Thread.critical = old_c
-		end
-	end
-
-	@@undefine_iec = proc do |name|
-		InstanceExecHelper.module_eval { remove_method(name) }
-	end
-
 	# Container module for dynamic instance_exec methods
   module InstanceExecHelper; end
   include InstanceExecHelper
@@ -33,20 +14,21 @@ class Object
 	# this allows you to pass arguments to the block.
 	# this works by dynamically creating methods on the
 	# helper module (which is included in the object).
-  def instance_exec(*args, &block)
-		untraced(3) do
-			name = @@define_iec.call block
-			value = send(name, *args)
-			@@undefine_iec.call name
-			value
+	def instance_exec(*args, &block)
+		begin
+			old_c, Thread.critical = Thread.critical, true
+			n = 0; n += 1 while respond_to?(name = "__instance_exec#{n}")
+			InstanceExecHelper.module_eval do
+				define_method(name, &block)
+			end
+		ensure
+			Thread.critical = old_c
 		end
-	end
-
-	def from_yaml(yaml)
-		obj = YAML.load(yaml)
-		to_yaml_properties.each do |n|
-			eval "#{n} = obj.instance_variable_get :#{n}"
+		value = send(name, *args)
+		InstanceExecHelper.module_eval do
+			remove_method name
 		end
+		value
 	end
 
 end
@@ -54,51 +36,6 @@ end
 class Fixnum
 	def to_hex
 		"%x" % [self]
-	end
-end
-
-# This code is to prevent DOS attacks by hiding some
-# builtin methods of Ruby's Thread class,
-# critical= and abort_on_exception=.
-class Thread
-
-	# this inner class allows code running at $SAFE==0
-	# to access critical=.
-	class CritContainer
-		def initialize(crit)
-			@crit = crit
-		end
-		def set(*args)
-			raise "safe threads can't go critical" if $SAFE > 0
-			@crit.call *args
-		end
-		def instance_variable_get(*args)
-			raise "somebody's trying to be naughty!"
-		end
-	end
-
-	unless respond_to? :old_crit=
-		class << self
-			alias :old_crit= :critical=
-		end
-	end
-
-	# store the old critical= method into a hidden wrapper
-	@@crit = CritContainer.new(method(:old_crit=))
-
-	# redefine critical= to use the safe wrapper
-	def self.critical=(*args)
-		@@crit.set *args
-	end
-
-	# don't allow any access to abort_on_exception=
-	def self.abort_on_exception=(*args)
-		raise "somebody's trying to be naughty!"
-	end
-			
-	# don't allow any access to abort_on_exception=
-	def abort_on_exception=(*args)
-		raise "somebody's trying to be naughty!"
 	end
 end
 
@@ -147,35 +84,12 @@ class Regexp
 	def replace_uids
 		/#{source.gsub(/\(uid\)/,"(#{Regexp::UID})")}/
 	end
-
-	# like match, but returns nil unless the matching text
-	# is the same length as the input string
-	def match_all?(str)
-		return nil unless (m = match str)
-		m[0].size == str.size ? m : nil
-	end
 end
 
 class Array
 	# get self[0..index], and show as path
 	def subpath(index=-1)
 		'/' + self[0..index].join('/')
-	end
-	def inject_with_index(value=0, &block)
-		each_with_index do |x,i|
-			value = yield value, x, i
-		end
-		value
-	end
-	def without(i)
-		self[0,i] + self[i+1..-1]
-	end
-	def permute
-		return self if empty?
-		return [self] if size == 1
-		inject_with_index([]) do |a,x,i|
-			a + without(i).permute.map {|p| [x,*p]}
-		end
 	end
 end
 
@@ -192,24 +106,5 @@ class Hash
 		'?' + map do |k,v|
 			URI.encode(k.to_s) + '=' + URI.encode(v.to_s)
 		end.join('&')
-	end
-	def stringify!
-		class << self
-			alias :old_get :[]
-			alias :old_delete :delete
-			def [](k)
-				old_get(k) || old_get(k.to_s)
-			end
-			def delete(k)
-				keys.include?(k) ? old_delete(k) : old_delete(k.to_s)
-			end
-		end
-		each do |k,v|
-			self[k.to_s] = delete(k) unless k.is_a? String
-		end
-		self
-	end
-	def stringify
-		clone.stringify!
 	end
 end

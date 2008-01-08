@@ -1,12 +1,8 @@
-#! /usr/bin/ruby
-
 $:.unshift File.dirname(__FILE__)
 
 require 'rubygems'
 require 'net/http'
 require 'mongrel'
-require 'socket'
-require 'config'
 require 'uri'
 require 'ext'
 
@@ -15,13 +11,8 @@ include Net
 # The multiverse server. Runs Mongrel.
 class Server < Mongrel::HttpHandler
 
-	include Configurable
-
-	attr_reader :localhost
-
-	# set up server state and load configuration.
+	# set up server
 	def initialize(options={})
-		load_configuration
 		@scripts = []
 		@routes = []
 		@status = {}
@@ -29,19 +20,6 @@ class Server < Mongrel::HttpHandler
 		@stopping = false
 	end
 	
-	# load configuration settings
-	def load_configuration
-		@base = File.expand_path(File.dirname(__FILE__) + '/../config')
-		Configurable.base = @base
-
-		config_file 'host.config', 'host'
-		config_log config['address'], options[:log]
-		config_options options
-		config_default(
-			'port' => 4000,
-			'wait_timeout' => 5.0)
-	end
-
 	# immediately abort execution 
 	def abort
 		@log.fatal "aborted: shutting down"
@@ -52,7 +30,7 @@ class Server < Mongrel::HttpHandler
 	# start the server; also trap user interrupts.
 	def start
 		raise 'already started' if @running
-		@http = Mongrel::HttpServer.new '0.0.0.0', config['port'].to_s
+		@http = Mongrel::HttpServer.new '0.0.0.0', @port.to_s
 		@http.register "/", self
 		@thread = @http.run
 		trap('INT') { self.abort }
