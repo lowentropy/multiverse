@@ -52,7 +52,7 @@ module REST
 
 		def get
 			value = @pattern.render(instance_exec(&index_handler))
-			reply :body => value unless $env.replied?
+			reply :body => value unless @reply
 		end
 
 		# POSTing to a store has many possible behaviors. In order of
@@ -68,7 +68,7 @@ module REST
 			return instance_exec(&add_handler) if add and add.arity == 0
 			entity_path = entity.generate_path params
 			item = entity.instance(self, entity_path, true)
-			return if $env.replied?
+			return if @reply
 			reply(:code => 405) and return unless item
 			return item.put unless add
 			item.new
@@ -154,7 +154,8 @@ module REST
 		end
 
 		def route_to_sub(vis, klass, parent, instance, path, index)
-			return nil unless klass.regex.match_all? path[index]
+			regex = /^#{klass.regex.source}$/
+			return nil unless regex.match? path[index]
 			assert_visibility vis
 			inst = klass.instance(instance, path[index])
 			klass.handle(instance, inst, path, index+1)
@@ -162,18 +163,19 @@ module REST
 
 		# dynamic routing
 		def route_to_dynamic(parent, instance, path, index)
-			if (match = @entity[1].regex.match_all? path[index])
+			regex = /^#{@entity[1].regex.source}$/
+			if (match = regex.match? path[index])
 				item = instance.do_find match
 				unless item
-					if $env.params[:method] == :put and
+					if method == :put and
 						 index == (path.size - 1)
-						$env.params[:method] = :post
+						request.method = :post
 						@entity[1].parse(path[-1]).each do |part,value|
-							$env.params[part] = value
+							params[part] = value
 						end
 						return instance
 					end
-					$env.reply :code => 404
+					reply :code => 404
 					return nil
 				end
 				set_parent_and_path(item, instance, path[index])

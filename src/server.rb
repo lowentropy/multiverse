@@ -1,10 +1,13 @@
 $:.unshift File.dirname(__FILE__)
 
 require 'rubygems'
+require 'ruby2ruby'
 require 'net/http'
 require 'mongrel'
+require 'script'
 require 'uri'
 require 'ext'
+require 'mv'
 
 include Net
 
@@ -13,74 +16,133 @@ class Server < Mongrel::HttpHandler
 
 	# set up server
 	def initialize(options={})
+		@routes = {}
+		@threads = []
 		@scripts = []
-		@routes = []
-		@status = {}
 		@running = false
 		@stopping = false
+		@port = 4000
+		$thread = MV::ThreadLocal.new
+	end
+
+	# load scripts into their own sandboxes
+	def load(*scripts)
+		raise "must start server before loading" unless running?
+		raise "can't load scripts while stopping" if stopping?
+		scripts.each do |name|
+			script = Script.new
+			script.eval File.read(name)
+			run(script)
+		end
+	end
+
+	# run a script
+	def run(script)
+		raise "must start server before runnign script" unless running?
+		raise "can't run script while stopping" if stopping?
+		@scripts << script
+		@threads << [Thread.new(script, exc=[]) do
+			$thread[:server] = self
+			begin
+				script.run
+				@scripts.delete script
+			rescue Exception => e
+				exc << e
+			end
+		end, exc]
 	end
 	
 	# immediately abort execution 
 	def abort
-		@log.fatal "aborted: shutting down"
-		stop
-		join 0.1
+		raise "not running" unless running?
+		stop unless stopping?
+		join 0
+	end
+	
+	# is the server running?
+	def running?
+		@running
+	end
+
+	# is the server in the process of stopping?
+	def stopping?
+		@stopping
 	end
 
 	# start the server; also trap user interrupts.
 	def start
-		raise 'already started' if @running
+		raise 'already running' if running?
 		@http = Mongrel::HttpServer.new '0.0.0.0', @port.to_s
 		@http.register "/", self
 		@thread = @http.run
-		trap('INT') { self.abort }
 		@running = true
+		trap('INT') { self.abort }
 	end
 
 	# shut down the server
 	def stop
-		@http.stop if @http
+		raise 'not running' unless running?
+		raise 'already stopping' if stopping?
 		@stopping = true
+		@http.stop if @http
+		@scripts.each do |script|
+			script.stop
+		end
 	end
 
 	# join w/ the server thread
 	def join(timeout=nil)
 		@thread.join timeout if @thread
+		errors = []
+		until @threads.empty?
+			thread, exc = @threads.shift
+			thread.join timeout
+			errors << exc[0] if exc.any?
+		end
 		@running = false
 		@stopping = false
+		errors
 	end
 
 	# MONGREL: process HTTP request.
 	def process(request, response)
-		begin
-			code, body = handle_http request
+		hash = begin
+			handle_http request
 		rescue Exception => e
-			@log.error e
-			code, body = 500, e.message
+			{:code => 500, :body => e.message}
 		end
+		write_http_response(response, hash)
+	end
+
+	# send HTTP response from mongrel
+	def write_http_response(response, hash)
+		code = hash.delete :code
+		body = hash.delete :body
 		response.start(code) do |head,out|
+			hash.each {|k,v| head[k] = v}
 			out.write body
 		end
 	end
 
 	# issue an HTTP request. this function will block until some
-	# respose is received. returns [code, body].
-  def send_request(verb, url, body, params, timeout)
-		request = create_request(verb, path, body, params)
+	# respose is received. returns [code, body, headers].
+  def send_request(verb, url, body, type, params, timeout)
 		uri = URI.parse url
+		request = create_request(verb, path, body, type, params)
+		# TODO: put a timeout on this
 		response = Net::HTTP.start(uri.host, uri.port) do |http|
 			http.request request
 		end
-		[response.code.to_i, response.body]
+		[response.code, response.body, response.to_hash]
   end
 
 	# create a properly-constructed request
-	def create_request(verb, path, body, params)
+	def create_request(verb, path, body, type, params)
 		request_class = "HTTP::#{verb.to_s.capitalize}".constantize
 		if body and request_class.body?
 			request = request_class.new(path + params.url_encode)
 			request.body = body
-			request.content_type = 'text/plain'
+			request.content_type = type
 		else
 			request = request_class.new path
 			request.form_data = params
@@ -88,31 +150,24 @@ class Server < Mongrel::HttpHandler
 		request
 	end
 
-	# handle a message from the pipe
-	def handle_script_request(script, command, params, sync)
-		return nil if @stopping
-		send command, script, params
-	rescue
-		@log.error $!
-		fail
-	end
-
-	# map a url regex to an environment handler id
-	def map(script, params)
-		@routes[params[:id]] [script, params[:regex]]
-		{}
-	end
-
-	# update script status
-	def status(script, params)
-		@status[script] = params[:status]
-		{}
+	# map a url regex to a script handler id
+	def map(script, id, regex)
+		@routes[id] = [script, regex]
 	end
 
 	# output script log
-	def log(script, params)
-		@log.send params[:level], params[:message]
-		{}
+	def log(script, level, message)
+		name = script ? script.name : 'server'
+		name = name[-10..-1] if name.size > 10
+		message = "[%10s] %s" % [name, message]
+		@log.send level, message
+	end
+
+	# load some text into a script
+	def require(script, *files)
+		files.each do |file|
+			script.eval File.read(file)
+		end
 	end
 
 	# handle an HTTP request; return code, body
@@ -139,8 +194,8 @@ class Server < Mongrel::HttpHandler
 	def request_info(request)
 		body = read_body(request.body)
 		body, params = request_body_params(request, body)
-		method = request.params['REQUEST_METHOD'].downcase.to_sym
-		path = request.params['REQUEST_PATH']
+		method = request['request_method'].downcase.to_sym
+		path = request['request_path']
 		[method, path, body, params]
 	end
 
@@ -155,7 +210,8 @@ class Server < Mongrel::HttpHandler
 
 	# get form params from request
 	def request_body_params(request, body)
-		body, encoded, params = strip_request_params request, {}
+		params = {}
+		body, encoded = strip_request_params(request, body)
 		encoded.split('&').each do |pair|
 			key, val = pair.split('=').map {|s| URI.decode(s)}
 			params[key] = val
@@ -167,11 +223,11 @@ class Server < Mongrel::HttpHandler
 	# content-type is url-encoded; otherwise, take them from the
 	# request uri. returns [body, encoded_params]
 	def strip_request_params(request, body)
-		if /encoded/i =~ request.params['CONTENT_TYPE']
+		if /encoded/i =~ request['content_type']
 			[nil, body || '']
 		else
-			uri = request.params['REQUEST_URI']
-			idx = uri.rindex '?'
+			uri = request['request_uri']
+			idx = uri.index '?'
 			[body, idx ? uri[idx+1..-1] : '']
 		end
 	end

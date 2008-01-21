@@ -5,26 +5,27 @@ module REST
 		def initialize(url)
 			@uri = URI.parse(url)
 		end
-	  def env
-	    $env
-    end
 		def get(params={})
-			code, body = $env.get @uri.to_s, '', params
+			hash = MV.get @uri.to_s, '', params
+			code, body = hash[:code], hash[:body]
 			raise RestError.new(code, body) if code != 200
 			YAML.load body
 		end
 		def put(body='', params={})
-			code, body = $env.put @uri.to_s, body, params
+			hash = MV.put @uri.to_s, body, params
+			code, body = hash[:code], hash[:body]
 			raise RestError.new(code, body) if code != 200
 		end
 		alias :set :put
 		def post(body='', params={})
-			code, body = $env.post @uri.to_s, body, params
+			hash = MV.post @uri.to_s, body, params
+			code, body = hash[:code], hash[:body]
 			raise RestError.new(code, body) if code != 200
 			YAML.load body
 		end
 		def delete
-			code, body = $env.delete @uri.to_s, '', {}
+			hash = MV.delete @uri.to_s, body, {}
+			code, body = hash[:code], hash[:body]
 			raise RestError.new(code, body) if code != 200
 		end
 		# a no-argument missing method call should refer

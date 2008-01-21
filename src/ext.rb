@@ -57,6 +57,11 @@ class String
 		end
 	end
 
+	# split a url into parts separated by /
+	def url_split
+		split('/').reject {|p| p.empty?}
+	end
+
 	# find the plural of an english word
 	def pluralize
 		if self[-1,1] == 'y'

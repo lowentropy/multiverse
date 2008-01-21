@@ -1,8 +1,7 @@
 # A unique identifier of 128 bits.
 class UID
 
-	# generate a random 128-bit number
-	# as per rfc 4122 (uuid)
+	# generate a random 128-bit number as per rfc 4122 (uuid)
 	def self.random
 		[8,4,4,4,12].map {|n| rand_hex(n)}.join '-'
 	end

@@ -30,8 +30,11 @@ class Script
 		# expression after a goto
 		def __main
 			@state = :default
-			while true
+			@running = true
+			@stopping = false
+			until @stopping
 				event = :start
+				MV.log :debug, "state = #{@state}, event = #{event}" # DEBUG
 				block = @states[@state][event]
 				raise 'no block' unless block
 				result = nil
@@ -40,6 +43,8 @@ class Script
 				end
 				break if result
 			end
+			@running = false
+			@stopping = false
 			result
 		end
 		# handle an http request
@@ -72,8 +77,9 @@ class Script
 	end
 
 	# create a new script
-	def initialize
+	def initialize(options={})
 		@sandbox = Sandbox.safe
+		@options = options.merge(:safelevel => 3, :timeout => 5)
 		import 'Script::Definers'
 		eval '@states = {}; @state = nil'
 	end
@@ -81,7 +87,7 @@ class Script
 	# evaluate script text
 	def eval(str)
 		raise "can't load while running" if @running
-		@sandbox.eval str, :safelevel => 3, :timeout => 5
+		@sandbox.eval str, @options
 	end
 
 	# explicitly declare a state
@@ -90,9 +96,13 @@ class Script
 	end
 
 	# import a module into the script
-	def import(name)
-		@sandbox.import Kernel.eval(name)
-		@sandbox.eval "class << self; include #{name}; end; nil"
+	def import(name_or_module)
+		if name_or_module.is_a? Module
+			@sandbox.import name_or_module
+		else
+			@sandbox.import Kernel.eval(name_or_module)
+			@sandbox.eval "class << self; include #{name_or_module}; end; nil"
+		end
 	end
 
 	# load text into script, as given name
@@ -103,6 +113,11 @@ class Script
 	# reset state definitions
 	def reset
 		eval "@states = {}; @state = nil"
+	end
+
+	# get the next command
+	def command
+		@sandbox.eval "MV.read_out"
 	end
 
 	%w(quit pause abort).each do |action|
@@ -119,12 +134,32 @@ class Script
 
 	# run the state machine
 	def run
+		raise 'already running' if running?
 		unless @ran
+			$thread[:script] = self
 			import 'Script::Runners'
-			@sandbox.import MV
+			@sandbox.ref MV
 			@sandbox.eval 'self.taint'
 			@ran = true
 		end
 		@sandbox.eval '__main', :safelevel => 4
 	end
+
+	# stop the state machine
+	def stop
+		raise 'not running' unless running?
+		raise 'already stoping' if stopping?
+		@sandbox.eval '@running = false'
+	end
+
+	# is the script running?
+	def running?
+		@sandbox.eval '@running'
+	end
+
+	# is the script stopping?
+	def stopping?
+		@sandbox.eval '@stopping'
+	end
+
 end

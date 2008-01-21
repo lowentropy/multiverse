@@ -1,69 +1,66 @@
 module MV
 
-	def self.init
-		@outbox = []
-		@inbox = {}
-		@routes = {}
-		@outbox_mutex = Mutex.new
-		@inbox_mutex = Mutex.new
-	end
-
-	def self.send_out(id, command, params)
-		@outbox_mutex.synchronize do
-			@outbox << [id, command, params]
+	class ThreadLocal
+		def initialize
+			@threads = {}
 		end
-	end
-
-	def self.read_in(id, params)
-		@inbox_mutex.synchronize do
-			@inbox[id] = params
+		def [](name)
+			thread[name]
 		end
-	end
-
-	def self.sync(command, params={})
-		wait_for async(command, params)
-	end
-
-	def self.async(command, params={})
-		id = UID.random
-		send_out id, command, params
-		id
-	end
-
-	def self.wait_for(id)
-		Thread.pass until @inbox[id]
-		@inbox.delete id
+		def []=(name, value)
+			thread[name] = value
+		end
+		def thread
+			@threads[MV.thread_id] ||= {}
+		end
 	end
 
 	%w(get put post delete).each do |verb|
-		self.define_method verb do |url,borp,*rest|
-			body, params = if borp.kind_of? Hash
-				'', borp
-			else
-				borp, {}
-			end
-			timeout = rest.shift # TODO: default timeout
-			sync :http,
-				{	:verb => verb.to_sym,
-					:body => body,
-					:params => params,
-					:timeout => timeout }
+		self.send :define_method, verb do |*args|
+			$server.send_request verb, *args
 		end
 	end
 
-	def log(level, message)
-		async :log, {:level => level, :message => message}
+	def self.log(level, message)
+		puts "#{level}: #{message}" # DEBUG
+		server.log script, level, message
 	end
 
-	def map(regex, &block)
-		@routes[id = UID.random] = block
-		async :map, {:id => id, :regex => regex}
-		id
+	def self.map(regex, &block)
+		(@routes ||= {})[id = UID.random] = block
+		server.map script, id, regex
 	end
 
-	def unmap(id)
-		@routes.delete id
-		async :unmap, {:id => id}
+	def self.unmap(id)
+		(@routes ||= {}).delete id
+		server.unmap id
+	end
+
+	def self.load(*scripts)
+		server.load *scripts
+	end
+
+	def self.require(*files)
+		server.require script, *files
+	end
+
+	private
+
+	def self.script
+		$thread[:script]
+	end
+
+	def self.server
+		$thread[:server]
+	end
+
+	def self.action(id, request)
+		raise 'illegal route' unless @routes[id]
+		@routes[id].call request
+	end
+
+	def self.thread_id
+		Thread.current.object_id
 	end
 
 end

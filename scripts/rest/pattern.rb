@@ -1,52 +1,41 @@
 module REST
 
-	class Attribute
-	end
+	class Attribute; end
 
 	# Methods shared by all server-side REST pattern instances.
   module PatternInstance
-    attr_reader :uri
-		attr_reader :parent
-		# actual (request) path to instance
-		# FIXME these are sandbox-local!
-		def path
-			$env[:path]
+    attr_reader :uri, :parent
+		%w(path params body method).each do |var|
+			define_method var do
+				request[var.to_sym]
+			end
 		end
-		# parameters passed to instance in a call
-		def params
-			$env.params
+		def request
+			$thread[:request]
 		end
-		# body of request passed to instance
-		# FIXME these are sandbox-local!
-		def body
-			$env[:body]
+		def get_var(name)
+			instance_variable_get "@#{name}"
 		end
-		# method of request to instance
-		# FIXME these are sandbox-local!
-		def method
-			$env[:method]
+		def set_var(name, value)
+			instance_variable_set "@#{name}", value
 		end
-		# get the builtin attributes of the pattern
 		def attributes
-			@pattern.instance_variable_get :@attributes
+			@pattern._attributes
 		end
-		# reply
 		def reply(*args)
-			$env.reply *args
+			@reply = args
 			true
 		end
 		# TODO: render @map with requested media type or extension
-		# for now, rendering as yaml FIXME incorrect yaml? no obj type/name?
+		# for now, rendering as yaml.
 		def render
 			@map = {}
 			attributes.each do |attr|
 				@map[attr] = send attr
 			end
 			parts = @map.to_yaml.split(/\n/)
-			#parts[0] = "--- mv,2007/rest/#{@pattern.type}:#{@uri}"
 			parts[0].sub '{}', "mv,2007/rest/#{@pattern.type}:#{@uri}"
 			parts.join "\n"
-			# XXX to_yaml
 		end
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)
@@ -59,37 +48,24 @@ module REST
 			"#<#{@pattern.type}:#{@uri}>"
 		end
 		alias :inspect :to_s
-		# assert that the request is allowed for this resource
-		def assert_visibility(visibility)
-			# TODO
-		end
 		%w(get put post delete).each do |verb|
 			define_method verb do
 				if @pattern.verbs[verb]
 					value = instance_exec(&@pattern.verbs[verb][1])
-					reply :body => @pattern.render(value) unless $env.replied?
+					reply :body => @pattern.render(value) unless @reply
 				else
 					reply :code => 405, :body => "#{self} doesn't allow #{verb}"
 				end
 			end
 		end
 		private
+		# these wrap user-defined verbs
 		def adapters(methods)
 			methods.each do |method|
-				handler_name = "#{method}_handler"
-				private; define_method handler_name do
-					begin
-						vis, block = @pattern.instance_variable_get "@#{method}"
-					rescue Exception => e
-						puts e
-						puts e.backtrace
-					end
-					if block
-						assert_visibility vis
-						block
-					else
-						# TODO: security checks for defaults?
-						proc {|*args| send "default_#{method}", *args }
+				define_method "#{method}_handler" do
+					block = @pattern.send "_#{method}"
+					block ? block : proc do |*args|
+						send "default_#{method}", *args
 					end
 				end
 			end
@@ -103,34 +79,32 @@ module REST
 
     def initialize(regex, *actions)
       @regex = regex.replace_uids
-      @visibility = :public
       @actions = actions
 			@attributes = []
 			@parts = []
 			@verbs = {}
     end
 
-		# take the API definition and send messages to the environment, and
-		# thence to the server, that initialize routes for global requests to
+		# take the API definition and send messages to the script, and
+		# thence to the server, to initialize routes for global requests to
 		# reach the pattern instance.
     def map
-			$env.dbg "mapping REST handler #{@regex.source} to #{self}"
-      $env.listen @regex, self do
-				parts = $env[:request_uri].split('/').reject {|p| p.empty?}
-        handler = self.handle nil,
-					instance(nil, parts.subpath(0)), parts, 1
-				if handler
-					$env[:method] = $env.params.delete :method
-					$env[:body] = $env.params.delete :body
-					handler.send $env[:method]
-				else
-					$env.reply :code => 404, :body => $env[:path]
+      MV.map(/^\/#{@regex.source}/) do |request|
+				parts = request.path.url_split
+				top_inst = instance nil, parts.subpath(0)
+        inst = self.handle nil, top_inst, parts, 1
+				if inst
+					$thread[:request] = request
+					inst.send method
+					return @reply
 				end
+				{:code => 404, :body => "no handler for #{path}"}
       end
     end
 
 		def parse(path)
-			map, m = {}, regex.match(path.split('/')[-1])
+			parts = path.url_split
+			map, m = {}, regex.match(parts[-1])
       parts.each_with_index do |part,i|
 				map[part] = m[i + 1]
       end
@@ -186,8 +160,6 @@ module REST
 				else
 					read, write = true, true
 					uclass.send :attr_reader, name
-#					XXX the below gave 'can't intern tainted string'
-#					raise 'foo'
 					uclass.send :define_method, "#{name}=" do |value|
 						value = case type
 							when :int then value.to_i
@@ -251,7 +223,7 @@ module REST
 			klass = eval "@#{type}"
 			pattern = eval "#{type.capitalize}Instance"
 			@instance = klass.new
-			@instance.instance_variable_set :@pattern, self
+			@instance.set_var :pattern, self
 			[PatternInstance, pattern, @model].each do |mod|
 				mod = mod.clone
 				%w(render).each do |fun|
@@ -266,22 +238,13 @@ module REST
 
 		# set @parent and @uri on the instance
     def set_parent_and_path(object, parent, path)
-      object.instance_variable_set :@parent, parent
-      object.instance_variable_set :@uri, path
+      object.set_var :parent, parent
+      object.set_var :uri, path
 			object.parse path
       object
     end
 
-		# run a pattern instance's handler for the message
-    def run_handler(instance, *globals, &block)
-      Thread.new(instance, block, globals) do |instance,block,globals|
-        globals.each {|name,value| $env[name] = value}
-        instance ? instance.instance_exec(&block) : block.call
-      end.join
-    end
-
-		# handle a message by routing it until the target is found,
-		# then calling run_handler.
+		# handle a message by routing it until the target is found
     def handle(parent, instance, path, index)
 			if @trailing
 				trail = '/' + path[index..-1].join('/')
@@ -294,23 +257,8 @@ module REST
       end
     end
 
-		# set visibility
-    def public
-      @visibility = :public
-    end
-
 		def verb(v, &block)
-			@verbs[v.to_s] = [@visibility, block]
-		end
-
-		# set visibility
-    def private
-      @visibility = :private
-    end
-
-		# assert that a call is valid for protection scope
-		def assert_visibility(vis)
-			# TODO
+			@verbs[v.to_s] = block
 		end
   end
 

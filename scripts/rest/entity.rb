@@ -5,8 +5,6 @@ module REST
 	class EntityAdapter < Adapter
 	end
 
-	# TODO: make params a hash that calls to_s on keys
-
 	# Server-side entity instance methods
 	module EntityInstance
 		extend PatternInstance
@@ -44,7 +42,7 @@ module REST
 		# REST responder
 		def get
 			value = @pattern.render(instance_exec(&show_handler))
-			reply :body => value unless $env.replied?
+			reply :body => value unless @reply
 		end
 
 		# REST responder
@@ -134,13 +132,12 @@ module REST
 			@delete = [@visibility, block]
 		end
 
-		# TODO: other definers (???)
-    
 		# helper to route messages to a sub-pattern
 		def route_to_pattern(collection, parent, instance, path, index)
 			collection.each do |sub|
 				visibility, klass = *sub
-				if klass.regex.match_all? path[index]
+				regex = /^#{klass.regex.source}$/
+				if regex.match? path[index]
 					assert_visibility visibility
 					new_instance = klass.instance(instance, path.subpath(index))
 					return klass.handle(instance, new_instance, path, index+1)
