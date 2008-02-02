@@ -31,18 +31,19 @@ class Script
 		def __main(prev_thread_id)
 			MV.__continue(prev_thread_id)
 			@state = :default
-			@running = true
 			@stopping = false
+			@running = true
+			no_result = :no_result
+			result = no_result
 			until @stopping
 				event = :start
 				block = @states[@state][event]
 				raise 'no block' unless block
-				tok = :__unique__
-				result = tok
+				result = no_result
 				catch(:goto) do
 					result = block.call
 				end
-				break if result != tok
+				break if result != no_result
 			end
 			@running = false
 			@stopping = false
@@ -155,7 +156,7 @@ class Script
 	def stop
 		return unless running?
 		return if stopping?
-		@sandbox.eval '@running = false'
+		@sandbox.eval '@stopping = true'
 	end
 
 	# is the script running?

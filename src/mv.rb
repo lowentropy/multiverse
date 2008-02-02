@@ -1,12 +1,15 @@
+require 'uid'
+
 module MV
 
 	private
 
-	def self.def_priv(name, &block)
+	def self.def_priv(name, return_nil=true, &block)
 		module_eval %{
 			@#{name} = block
 			def self.#{name}(*args,&block)
-				@#{name}.call *args, &block
+				result = @#{name}.call *args, &block
+				#{return_nil} ? nil : result
 			end
 		}
 	end
@@ -35,7 +38,7 @@ module MV
 	end
 
 	%w(get put post delete).each do |verb|
-		self.def_priv verb do |*args|
+		self.def_priv verb, false do |*args|
 			server.send_request verb, *args
 		end
 	end
@@ -48,29 +51,32 @@ module MV
 		man = threads.values[0][:server]
 		#raise "MV.log [thread_id] = #{thread_id}"
 		server.log script, level, message
-		nil
 	end
 
-	def_priv :map do |regex,block|
+	def_priv :_map do |regex,block|
 		(@routes ||= {})[id = UID.random] = block
 		server.map script, id, regex
-		nil
+	end
+
+	def self.map(regex,&block)
+		_map regex, block
 	end
 
 	def_priv :unmap do |id|
 		(@routes ||= {}).delete id
 		server.unmap id
-		nil
 	end
 
 	def_priv :load do |*scripts|
 		server.load *scripts
-		nil
+	end
+
+	def_priv :pass do
+		Thread.pass
 	end
 
 	def_priv :require do |*files|
 		server.require script, *files
-		nil
 	end
 
 	private

@@ -53,6 +53,7 @@ class Server < Mongrel::HttpHandler
 				exc << e
 			end
 		end, exc]
+		Thread.pass until script.running?
 	end
 	
 	# immediately abort execution 
@@ -93,14 +94,20 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
+	# join a thread with a timeout. if it does time out, kill it.
+	def join_kill(thread, timeout)
+		thread.join timeout
+		thread.kill!
+	end
+
 	# join w/ the server thread. returns an array of errors
 	# which occured in the separate scripts.
 	def join(timeout=nil)
-		@thread.join timeout if @thread
+		join_kill @thread, timeout if @thread
 		errors = []
 		until @threads.empty?
 			thread, exc = @threads.shift
-			thread.join timeout
+			join_kill thread, timeout
 			errors << exc[0] if exc.any?
 		end
 		@running = false
