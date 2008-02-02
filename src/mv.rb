@@ -1,8 +1,19 @@
 module MV
 
+	private
+
+	def self.def_priv(name, &block)
+		module_eval %{
+			@#{name} = block
+			def self.#{name}(*args,&block)
+				@#{name}.call *args, &block
+			end
+		}
+	end
+
 	class ThreadLocal
 		def initialize
-			@threads = {}
+			@threads = {}.taint
 		end
 		def [](name)
 			thread[name]
@@ -13,35 +24,53 @@ module MV
 		def thread
 			@threads[MV.thread_id] ||= {}
 		end
+		def continue(old_id)
+			thread.merge! @threads[old_id]
+			nil
+		end
+	end
+		
+	def self.__continue(old_id)
+		$thread.continue(old_id)
 	end
 
 	%w(get put post delete).each do |verb|
-		self.send :define_method, verb do |*args|
-			$server.send_request verb, *args
+		self.def_priv verb do |*args|
+			server.send_request verb, *args
 		end
 	end
 
-	def self.log(level, message)
-		puts "#{level}: #{message}" # DEBUG
+	def_priv :log do |level,message|
+		#puts "#{level}: #{message}" # DEBUG
+		threads = $thread.instance_variable_get(:@threads)
+		#raise "real: #{thread_id}, stored: #{threads.keys[0]}"
+		#raise threads.values[0].keys.inspect
+		man = threads.values[0][:server]
+		#raise "MV.log [thread_id] = #{thread_id}"
 		server.log script, level, message
+		nil
 	end
 
-	def self.map(regex, &block)
+	def_priv :map do |regex,block|
 		(@routes ||= {})[id = UID.random] = block
 		server.map script, id, regex
+		nil
 	end
 
-	def self.unmap(id)
+	def_priv :unmap do |id|
 		(@routes ||= {}).delete id
 		server.unmap id
+		nil
 	end
 
-	def self.load(*scripts)
+	def_priv :load do |*scripts|
 		server.load *scripts
+		nil
 	end
 
-	def self.require(*files)
+	def_priv :require do |*files|
 		server.require script, *files
+		nil
 	end
 
 	private

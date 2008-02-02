@@ -5,6 +5,7 @@ require 'ruby2ruby'
 require 'net/http'
 require 'mongrel'
 require 'script'
+require 'log4r'
 require 'uri'
 require 'ext'
 require 'mv'
@@ -22,6 +23,8 @@ class Server < Mongrel::HttpHandler
 		@running = false
 		@stopping = false
 		@port = 4000
+		@log = Log4r::Logger.new 'server'
+		@log.outputters << Log4r::StdoutOutputter.new('MV')
 		$thread = MV::ThreadLocal.new
 	end
 
@@ -81,7 +84,7 @@ class Server < Mongrel::HttpHandler
 
 	# shut down the server
 	def stop
-		raise 'not running' unless running?
+		return unless running?
 		raise 'already stopping' if stopping?
 		@stopping = true
 		@http.stop if @http
@@ -90,7 +93,8 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
-	# join w/ the server thread
+	# join w/ the server thread. returns an array of errors
+	# which occured in the separate scripts.
 	def join(timeout=nil)
 		@thread.join timeout if @thread
 		errors = []

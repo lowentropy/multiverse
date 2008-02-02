@@ -28,20 +28,21 @@ class Script
 	module Runners
 		# run the state machine; return last evaluated
 		# expression after a goto
-		def __main
+		def __main(prev_thread_id)
+			MV.__continue(prev_thread_id)
 			@state = :default
 			@running = true
 			@stopping = false
 			until @stopping
 				event = :start
-				MV.log :debug, "state = #{@state}, event = #{event}" # DEBUG
 				block = @states[@state][event]
 				raise 'no block' unless block
-				result = nil
+				tok = :__unique__
+				result = tok
 				catch(:goto) do
 					result = block.call
 				end
-				break if result
+				break if result != tok
 			end
 			@running = false
 			@stopping = false
@@ -82,6 +83,11 @@ class Script
 		@options = options.merge(:safelevel => 3, :timeout => 5)
 		import 'Script::Definers'
 		eval '@states = {}; @state = nil'
+	end
+
+	# script's 'name'
+	def name
+		"TODO"
 	end
 
 	# evaluate script text
@@ -142,13 +148,13 @@ class Script
 			@sandbox.eval 'self.taint'
 			@ran = true
 		end
-		@sandbox.eval '__main', :safelevel => 4
+		@sandbox.eval "__main(#{MV.thread_id})", :safelevel => 4
 	end
 
 	# stop the state machine
 	def stop
-		raise 'not running' unless running?
-		raise 'already stoping' if stopping?
+		return unless running?
+		return if stopping?
 		@sandbox.eval '@running = false'
 	end
 

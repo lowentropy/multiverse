@@ -2,6 +2,8 @@ $: << 'src'
 require 'server'
 require 'script'
 
+puts "at start, tid = #{MV.thread_id}"
+
 def time(name, &block)
 	start = Time.now
 	$stdout.write("%10s: " % [name])
@@ -19,8 +21,17 @@ time 'read' do
 	@script.eval %{
 		state :default do
 			start do
-				MV.log :debug, 'foo'
-				goto :default
+				@count = 0
+				goto :next
+			end
+		end
+		state :next do
+			start do
+				if @count < 10
+					@count += 1
+					MV.log :info, @count
+					goto :next
+				end
 			end
 		end
 	}
