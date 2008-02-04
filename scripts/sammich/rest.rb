@@ -1,6 +1,5 @@
-use! 'rest'
-use! 'pgrid'
-include REST
+use 'rest'
+use 'pgrid'
 
 store(/sammich/, Sammich::Store) do
 	index do
@@ -32,14 +31,6 @@ store(/sammich/, Sammich::Store) do
 			end
 		end
 	end
+end.serve do
+	'/grid'.to_grid.map :sammich, /(rep|complaints)/ => '\1/\2'
 end
-
-map_rest
-
-#if use('pgrid')
-#	'/grid'.to_grid.map :sammich, /(rep|complaints)/ => '\1/\2'
-#end
-
-'/grid'.to_grid.map :sammich, /(rep|complaints)/ => '\1/\2'
-
-fun(:start) { quit }

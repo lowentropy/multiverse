@@ -1,5 +1,4 @@
-use! 'rest'
-include REST
+use 'rest'
 
 @cache = store(/cache/, Cache) do
 	attributes :size
@@ -30,6 +29,4 @@ include REST
 	end
 end
 
-map_rest
-
-fun(:start) { quit }
+@cache.serve

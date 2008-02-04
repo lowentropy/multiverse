@@ -1,7 +1,5 @@
-use! 'pgrid'
-use! 'rest'
-
-include REST
+use 'pgrid'
+use 'rest'
 
 class Solver
 	def initialize
@@ -24,10 +22,6 @@ store(/solver/,Solver) do
 		get { parent.solve uid }
 		update { parent.add uid, body }
 	end
+end.serve do
+	'/grid'.to_grid.map :solver
 end
-
-map_rest
-
-'/grid'.to_grid.map :solver
-
-fun(:start) { quit }

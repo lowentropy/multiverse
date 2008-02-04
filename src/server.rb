@@ -29,14 +29,12 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# load scripts into their own sandboxes
-	def load(*scripts)
+	def load(name, *files)
 		raise "must start server before loading" unless running?
 		raise "can't load scripts while stopping" if stopping?
-		scripts.each do |name|
-			script = Script.new name
-			script.eval File.read(name)
-			run(script)
-		end
+		script = Script.new name
+		req(script, *files)
+		run(script)
 	end
 
 	# run a script

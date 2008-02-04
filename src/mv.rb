@@ -66,8 +66,8 @@ module MV
 		server.unmap id
 	end
 
-	def_priv :load do |*scripts|
-		server.load *scripts
+	def_priv :load do |name,*scripts|
+		server.load name, *scripts
 	end
 
 	def_priv :pass do

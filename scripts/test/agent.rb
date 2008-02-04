@@ -4,9 +4,10 @@
 	libs 'scripts/agents.rb'
 end
 
-fun(:start) do
-	log "activating agent"
-	@a.activate!
-	log "activated agent"
-	quit
+state :default do
+	start do
+		MV.log :info, "activating agent"
+		@a.load_server
+		MV.log :info, "activated agent"
+	end
 end
