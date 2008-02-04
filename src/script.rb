@@ -51,8 +51,7 @@ class Script
 		end
 		# handle an http request
 		def __handle(id, body, params, headers)
-			raise "bad route id #{id}" unless @routes[id]
-			@routes[id].call body, params, headers
+			MV.action(id, body, params, headers)
 		end
 		# jump to a new state
 		def goto(new_state)
@@ -78,17 +77,16 @@ class Script
 		end
 	end
 
+	attr_reader :name, :routes
+	
 	# create a new script
-	def initialize(options={})
+	def initialize(name, options={})
+		@name = name
 		@sandbox = Sandbox.safe
 		@options = options.merge(:safelevel => 3, :timeout => 5)
+		@routes = {}
 		import 'Script::Definers'
 		eval '@states = {}; @state = nil'
-	end
-
-	# script's 'name'
-	def name
-		"TODO"
 	end
 
 	# evaluate script text
@@ -136,6 +134,7 @@ class Script
 	# handle an http request
 	def handle(id, body, params, headers)
 		args = [id, body, params, headers]
+		$thread[:script] = self
 		@sandbox.eval "__handle(*#{args.inspect})"
 	end
 
@@ -146,9 +145,11 @@ class Script
 			$thread[:script] = self
 			import 'Script::Runners'
 			@sandbox.ref MV
+			@sandbox.ref MV::Request
 			@sandbox.eval 'self.taint'
 			@ran = true
 		end
+		@failed = false
 		@sandbox.eval "__main(#{MV.thread_id})", :safelevel => 4
 	end
 
@@ -157,6 +158,18 @@ class Script
 		return unless running?
 		return if stopping?
 		@sandbox.eval '@stopping = true'
+	end
+
+	# the script failed and is no longer running.
+	def failed!
+		@sandbox.eval '@stopping = false'
+		@sandbox.eval '@running = false'
+		@failed = true
+	end
+
+	# did the script fail?
+	def failed?
+		@failed
 	end
 
 	# is the script running?

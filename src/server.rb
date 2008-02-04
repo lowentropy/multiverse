@@ -33,7 +33,7 @@ class Server < Mongrel::HttpHandler
 		raise "must start server before loading" unless running?
 		raise "can't load scripts while stopping" if stopping?
 		scripts.each do |name|
-			script = Script.new
+			script = Script.new name
 			script.eval File.read(name)
 			run(script)
 		end
@@ -50,10 +50,11 @@ class Server < Mongrel::HttpHandler
 				script.run
 				@scripts.delete script
 			rescue Exception => e
+				script.failed!
 				exc << e
 			end
 		end, exc]
-		Thread.pass until script.running?
+		Thread.pass until script.running? or script.failed?
 	end
 	
 	# immediately abort execution 
@@ -120,7 +121,7 @@ class Server < Mongrel::HttpHandler
 		hash = begin
 			handle_http request
 		rescue Exception => e
-			{:code => 500, :body => e.message}
+			{:code => 500, :body => [e.message, *e.backtrace].join("\n")}
 		end
 		write_http_response(response, hash)
 	end
@@ -139,7 +140,7 @@ class Server < Mongrel::HttpHandler
 	# respose is received. returns [code, body, headers].
   def send_request(verb, url, body, type, params, timeout)
 		uri = URI.parse url
-		request = create_request(verb, path, body, type, params)
+		request = create_request(verb, url, body, type, params)
 		# TODO: put a timeout on this
 		response = Net::HTTP.start(uri.host, uri.port) do |http|
 			http.request request
@@ -175,7 +176,7 @@ class Server < Mongrel::HttpHandler
 	end
 
 	# load some text into a script
-	def require(script, *files)
+	def req(script, *files)
 		files.each do |file|
 			script.eval File.read(file)
 		end
@@ -186,7 +187,8 @@ class Server < Mongrel::HttpHandler
 		method, path, body, params = request_info request
 		script, id = route path
 		if script
-			script.handle id, path, body, params, request.params
+			$thread[:server] = self
+			script.handle id, body, params, request.params
 		else
 			{:code => 404, :body => "#{method}: no route to #{url}"}
 		end
@@ -205,8 +207,10 @@ class Server < Mongrel::HttpHandler
 	def request_info(request)
 		body = read_body(request.body)
 		body, params = request_body_params(request, body)
-		method = request['request_method'].downcase.to_sym
-		path = request['request_path']
+		#method = request['request_method'].downcase.to_sym
+		method = request.params['REQUEST_METHOD'].downcase.to_sym
+		#path = request['request_path']
+		path = request.params['REQUEST_PATH']
 		[method, path, body, params]
 	end
 
@@ -223,7 +227,7 @@ class Server < Mongrel::HttpHandler
 	def request_body_params(request, body)
 		params = {}
 		body, encoded = strip_request_params(request, body)
-		encoded.split('&').each do |pair|
+		(encoded || '').split('&').each do |pair|
 			key, val = pair.split('=').map {|s| URI.decode(s)}
 			params[key] = val
 		end
@@ -234,12 +238,13 @@ class Server < Mongrel::HttpHandler
 	# content-type is url-encoded; otherwise, take them from the
 	# request uri. returns [body, encoded_params]
 	def strip_request_params(request, body)
-		if /encoded/i =~ request['content_type']
+		if /encoded/i =~ request.params['HTTP_CONTENT_TYPE']
 			[nil, body || '']
 		else
-			uri = request['request_uri']
+			uri = request.params['REQUEST_URI']
 			idx = uri.index '?'
-			[body, idx ? uri[idx+1..-1] : '']
+			query = idx ? uri[idx+1..-1] : ''
+			[body, query]
 		end
 	end
 

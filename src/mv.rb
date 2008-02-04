@@ -2,6 +2,13 @@ require 'uid'
 
 module MV
 
+	class Request
+		attr_reader :body, :params, :headers
+		def initialize(body, params, headers)
+			@body, @params, @headers = body, params, headers
+		end
+	end
+
 	private
 
 	def self.def_priv(name, return_nil=true, &block)
@@ -44,26 +51,18 @@ module MV
 	end
 
 	def_priv :log do |level,message|
-		#puts "#{level}: #{message}" # DEBUG
 		threads = $thread.instance_variable_get(:@threads)
-		#raise "real: #{thread_id}, stored: #{threads.keys[0]}"
-		#raise threads.values[0].keys.inspect
 		man = threads.values[0][:server]
-		#raise "MV.log [thread_id] = #{thread_id}"
 		server.log script, level, message
 	end
 
 	def_priv :_map do |regex,block|
-		(@routes ||= {})[id = UID.random] = block
+		routes[id = UID.random] = block
 		server.map script, id, regex
 	end
 
-	def self.map(regex,&block)
-		_map regex, block
-	end
-
 	def_priv :unmap do |id|
-		(@routes ||= {}).delete id
+		routes.delete id
 		server.unmap id
 	end
 
@@ -75,8 +74,12 @@ module MV
 		Thread.pass
 	end
 
-	def_priv :require do |*files|
-		server.require script, *files
+	def_priv :req do |*files|
+		server.req script, *files
+	end
+
+	def self.map(regex, block)
+		_map regex, block
 	end
 
 	private
@@ -89,9 +92,15 @@ module MV
 		$thread[:server]
 	end
 
-	def self.action(id, request)
-		raise 'illegal route' unless @routes[id]
-		@routes[id].call request
+	def self.routes
+		script.routes
+	end
+
+
+	def self.action(id, body, params, headers)
+		raise "illegal route" unless routes[id]
+		request = Request.new body, params, headers
+		routes[id].call request
 	end
 
 	def self.thread_id

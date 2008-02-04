@@ -1,6 +1,9 @@
 $: << 'src'
 require 'server'
 require 'script'
+require 'test'
+
+script_class = ARGV[0] ? TestScript : Script
 
 def time(name, &block)
 	start = Time.now
@@ -17,27 +20,40 @@ total = time 'start' do
 end
 
 total += time 'read' do
-	@script = Script.new
-	@script.eval %<
+	@script = script_class.new 'test'
+	@script.eval <<-END
+
 		state :default do
 			start do
-				MV.map /foo/ do |req|
-					MV.log :debug, req.inspect
-				end
-				goto :wait
+				goto :reqtest
 			end
 		end
-		state :wait do
+
+		state :reqtest do
 			start do
-				MV.pass
-				goto :wait
+				MV.req "foo.rb"
+				MV.log :debug, Foo.new.foo(5)
 			end
 		end
-	>
+
+		state :webtest do
+			start do
+				MV.map(/^\\/foo$/, proc do |req|
+					{:code => 200, :body => req.params.inspect}
+				end)
+				rep = MV.get 'http://localhost:4000/foo', '', 'text/plain', {'a'=>'b'}, 1
+				MV.log :debug, rep.inspect
+			end
+		end
+	END
 end
 
 total += time 'run' do
 	@server.run @script
+end
+
+total += time 'wait' do
+	Thread.pass while @script.running?
 end
 
 total += time 'stop' do
@@ -45,7 +61,7 @@ total += time 'stop' do
 end
 
 total += time 'join' do
-	@server.join(1).each do |e|
+	@server.join.each do |e|
 		fail e
 		puts e
 		puts e.backtrace.map {|l| "\t#{l}"}
