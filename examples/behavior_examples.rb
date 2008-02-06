@@ -5,27 +5,21 @@ require 'src/server'
 
 describe "Behaviour" do
   before :each do 
-		begin
-			@server = Server.new :log => {:level => :error}, 'port' => 4000
-		rescue Exception => e
-			puts e
-			puts e.backtrace
-		end
-		@server.start
-		@server.sandbox do
-			use! 'rest'
-		end
+		@server = Server.new.start
 	end
 	
 	after :each do
 		return unless @server
-		@server.shutdown
-		@server.join
+		@server.stop.join(1).each do |exc|
+			puts exc
+			puts exc.backtrace.map {|l| "\t#{l}"}
+		end
   end
   
   it "should call toplevel behavior" do    
-    @server.load :host, {}, "scripts/test/rest/behavior.rb"
+    @server.load 'test', "scripts/test/rest/behavior.rb"
 		@server.sandbox do
+			MV.req 'scripts/test/rest/behavior.rb'
 			'/foo'.to_behavior.call('', :a => 1, :b => 2).should == 3
 		end
   end

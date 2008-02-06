@@ -80,6 +80,7 @@ class Server < Mongrel::HttpHandler
 		@thread = @http.run
 		@running = true
 		trap('INT') { self.abort }
+		self
 	end
 
 	# shut down the server
@@ -91,6 +92,7 @@ class Server < Mongrel::HttpHandler
 		@scripts.each do |script|
 			script.stop
 		end
+		self
 	end
 
 	# join a thread with a timeout. if it does time out, kill it.
