@@ -22,27 +22,12 @@ end
 total += time 'read' do
 	@script = script_class.new 'test'
 	@script.eval <<-END
-
 		state :default do
 			start do
-				goto :reqtest
-			end
-		end
-
-		state :reqtest do
-			start do
-				MV.req "foo.rb"
-				MV.log :debug, Foo.new.foo(5)
-			end
-		end
-
-		state :webtest do
-			start do
-				MV.map(/^\\/foo$/, proc do |req|
-					{:code => 200, :body => req.params.inspect}
-				end)
-				rep = MV.get 'http://localhost:4000/foo', '', 'text/plain', {'a'=>'b'}, 1
-				MV.log :debug, rep.inspect
+				MV.req 'scripts/agent.rb'
+				agent = load_agent 'cache'
+				agent.load_client
+				MV.log :debug, Cache.new.inspect
 			end
 		end
 	END

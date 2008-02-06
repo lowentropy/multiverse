@@ -1,3 +1,4 @@
+require 'mv'
 require 'script'
 
 class TestScript < Script

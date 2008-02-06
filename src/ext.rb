@@ -3,30 +3,38 @@ $: << File.dirname(__FILE__)
 require 'net/http'
 require 'uri'
 
-# Extensions to object to include instance_exec
+# Extensions to object to include instance_exec.
+# NOTE: for some crazy reason, anything you put in
+# Object WILL be seen by sandbox code.
 class Object
 	
 	# Container module for dynamic instance_exec methods
   module InstanceExecHelper; end
   include InstanceExecHelper
 
+	@@unique_name = proc do
+		("__instance_exec_" +
+	 	 "#{Thread.current.object_id.abs}_" +
+		 "#{object_id.abs}").to_sym
+	end
+
 	# execute the given code in the context of this object.
 	# this allows you to pass arguments to the block.
 	# this works by dynamically creating methods on the
 	# helper module (which is included in the object).
 	def instance_exec(*args, &block)
-		begin
-			old_c, Thread.critical = Thread.critical, true
-			n = 0; n += 1 while respond_to?(name = "__instance_exec#{n}")
-			InstanceExecHelper.module_eval do
-				define_method(name, &block)
-			end
-		ensure
-			Thread.critical = old_c
+		name = @@unique_name.call
+		mod = Module.new
+		(class << self; self; end).send :include, mod
+		mod.module_eval do
+			define_method(name, &block)
 		end
-		value = send(name, *args)
-		InstanceExecHelper.module_eval do
-			remove_method name
+		begin
+			value = send(name, *args)
+		ensure
+			mod.module_eval do
+				undef_method name
+			end
 		end
 		value
 	end

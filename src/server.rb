@@ -6,6 +6,7 @@ require 'net/http'
 require 'mongrel'
 require 'script'
 require 'log4r'
+require 'test'
 require 'uri'
 require 'ext'
 require 'mv'
@@ -23,9 +24,15 @@ class Server < Mongrel::HttpHandler
 		@running = false
 		@stopping = false
 		@port = 4000
+		@sandbox = TestScript.new 'sandbox'
 		@log = Log4r::Logger.new 'server'
 		@log.outputters << Log4r::StdoutOutputter.new('MV')
 		$thread = MV::ThreadLocal.new
+	end
+
+	# run some code in a sandbox
+	def sandbox(&block)
+		@sandbox.eval block.to_ruby+".call"
 	end
 
 	# load scripts into their own sandboxes
@@ -39,7 +46,7 @@ class Server < Mongrel::HttpHandler
 
 	# run a script
 	def run(script)
-		raise "must start server before runnign script" unless running?
+		raise "must start server before running script" unless running?
 		raise "can't run script while stopping" if stopping?
 		@scripts << script
 		@threads << [Thread.new(script, exc=[]) do
@@ -52,7 +59,7 @@ class Server < Mongrel::HttpHandler
 				exc << e
 			end
 		end, exc]
-		Thread.pass until script.running? or script.failed?
+		Thread.pass until script.running? or script.finished?
 	end
 	
 	# immediately abort execution 
@@ -178,8 +185,16 @@ class Server < Mongrel::HttpHandler
 	# load some text into a script
 	def req(script, *files)
 		files.each do |file|
-			script.eval File.read(file)
+			raise "#{file} not safe!" unless file_safe(file)
 		end
+		files.each do |file|
+			script.eval File.read(file)+"; nil"
+		end
+	end
+
+	# check if a file is OK to load
+	def file_safe(file)
+		/^scripts\/(\w+\/)*\w+\.rb$/ =~ file
 	end
 
 	# handle an HTTP request; return code, body

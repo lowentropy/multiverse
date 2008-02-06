@@ -45,6 +45,7 @@ class Script
 				end
 				break if result != no_result
 			end
+			@finished = true
 			@running = false
 			@stopping = false
 			result
@@ -150,6 +151,7 @@ class Script
 			@ran = true
 		end
 		@failed = false
+		@finished = false
 		@sandbox.eval "__main(#{MV.thread_id})", :safelevel => 4
 	end
 
@@ -170,6 +172,11 @@ class Script
 	# did the script fail?
 	def failed?
 		@failed
+	end
+
+	# did the script run and then stop?
+	def finished?
+		@finished
 	end
 
 	# is the script running?
