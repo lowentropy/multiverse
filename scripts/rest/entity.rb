@@ -15,7 +15,7 @@ module REST
 		def default_new
 			attrs = @pattern.instance_variable_get :@attributes
 			attrs.each do |attr|
-				eval "@#{attr} = params[attr]"
+				instance_variable_set "@#{attr}", params[attr]
 			end
 		end
 
@@ -83,8 +83,8 @@ module REST
 		end
 
 		%w(show update delete new).each do |method|
-			define_method "#{method}_handler" do
-				eval "@#{method}"
+			define_method MV.sym("#{method}_handler") do
+				instance_variable_get "@#{method}"
 			end
 		end
 

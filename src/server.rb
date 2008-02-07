@@ -16,6 +16,8 @@ include Net
 # The multiverse server. Runs Mongrel.
 class Server < Mongrel::HttpHandler
 
+	class Timeout< Exception; end
+
 	# set up server
 	def initialize(options={})
 		@routes = {}
@@ -143,16 +145,29 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
+	# perform an action which must complete in
+	# finite time. throws an exception otherwise.
+	def timeout(timeout=0, &block)
+		Thread.new(block,v=[]) {v << block.call}.join(timeout)
+		return v[0] if v.any?
+		raise Timeout.new
+	end
+
 	# issue an HTTP request. this function will block until some
-	# respose is received. returns [code, body, headers].
-  def send_request(verb, url, body, type, params, timeout)
-		uri = URI.parse url
+	# respose is received.
+  def send_request(verb, options={})
+		uri = URI.parse options[:url]
+		body = options[:body] || ''
+		type = options[:content_type] || 'text/plain'
+		params = options[:params] || {}
+		timeout = options[:timeout] || 0
 		request = create_request(verb, url, body, type, params)
-		# TODO: put a timeout on this
-		response = Net::HTTP.start(uri.host, uri.port) do |http|
-			http.request request
+		response = timeout do
+			Net::HTTP.start(uri.host, uri.port) do |http|
+				http.request request
+			end
 		end
-		[response.code, response.body, response.to_hash]
+		%w(code body response).map {|s| response.send s}
   end
 
 	# create a properly-constructed request
@@ -263,4 +278,20 @@ class Server < Mongrel::HttpHandler
 		end
 	end
 
+end
+
+%w(Get Put Post Delete).each do |verb|
+	class << "Net::HTTP::#{verb}".constantize
+		def body?
+			self::REQUEST_HAS_BODY
+		end
+	end
+end
+
+class Hash
+	def url_encode
+		'?' + map do |k,v|
+			URI.encode(k.to_s) + '=' + URI.encode(v.to_s)
+		end.join('&')
+	end
 end

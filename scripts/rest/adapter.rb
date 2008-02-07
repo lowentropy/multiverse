@@ -6,27 +6,25 @@ module REST
 			@uri = URI.parse(url)
 		end
 		def get(params={})
-			hash = MV.get @uri.to_s, '', params
-			code, body = hash[:code], hash[:body]
-			raise RestError.new(code, body) if code != 200
-			YAML.load body
+			reply = MV.get :url => @uri.to_s, :params => params
+			raise RestError.new(reply) if reply.code != 200
+			YAML.load reply.body
 		end
 		def put(body='', params={})
-			hash = MV.put @uri.to_s, body, params
-			code, body = hash[:code], hash[:body]
-			raise RestError.new(code, body) if code != 200
+			reply = MV.put :url => @uri.to_s, :body => body, :params => params
+			raise RestError.new(reply) if reply.code != 200
+			nil
 		end
 		alias :set :put
 		def post(body='', params={})
-			hash = MV.post @uri.to_s, body, params
-			code, body = hash[:code], hash[:body]
-			raise RestError.new(code, body) if code != 200
-			YAML.load body
+			reply = MV.post :url => @uri.to_s, :body => body, :params => params
+			raise RestError.new(reply) if reply.code != 200
+			YAML.load reply.body
 		end
 		def delete
-			hash = MV.delete @uri.to_s, body, {}
-			code, body = hash[:code], hash[:body]
-			raise RestError.new(code, body) if code != 200
+			reply = MV.delete :url => @uri.to_s
+			raise RestError.new(reply) if reply.code != 200
+			nil
 		end
 		# a no-argument missing method call should refer
 		# to some kind of sub-instance

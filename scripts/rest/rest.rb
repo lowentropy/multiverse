@@ -28,26 +28,36 @@ module REST
   end
 
 	class RestError < RuntimeError
-		attr_reader :code, :body
-		def initialize(code, body)
-			@code, @body = code, body
+		def initialize(reply)
+			@reply
 			super("#{code}: #{body}")
+		end
+		%w(code body headers).each do |fun|
+			define_method MV.sym(fun) do
+				@reply.send fun
+			end
 		end
 	end
 
 	# toplevel entity
 	def entity(regex, klass=nil, &block)
-		(@entities ||= []) << [(@visibility||:public), Entity.new(klass, regex, &block)]
+		entity = Entity.new(klass, regex, &block)
+		(@entities ||= []) << [(@visibility||:public), entity]
+		entity
 	end
 
 	# toplevel store
 	def store(regex, klass=nil, &block)
-		(@stores ||= []) << [(@visibility||:public), Store.new(klass, regex, &block)]
+		store = Store.new(klass, regex, &block)
+		(@stores ||= []) << [(@visibility||:public), store]
+		store
 	end
 
 	# toplevel behavior
 	def behavior(regex, &block)
-		(@behaviors ||= []) << [(@visibility||:public), Behavior.new(regex, &block)]
+		behavior = Behavior.new(regex, &block) 
+		(@behaviors ||= []) << [(@visibility||:public), behavior]
+		behavior
 	end
 
 	# map REST handlers to MV handlers

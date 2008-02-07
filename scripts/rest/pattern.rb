@@ -6,7 +6,7 @@ module REST
   module PatternInstance
     attr_reader :uri, :parent
 		%w(path params body method).each do |var|
-			define_method var do
+			define_method MV.sym(var) do
 				request[var.to_sym]
 			end
 		end
@@ -40,7 +40,7 @@ module REST
 		# parse a fixed path into the named parts of our defining regex
     def parse(path)
 			@pattern.parse(path).each do |part,value|
-				eval "@#{part} = value"
+				instance_variable_set "@#{part}", value
 			end
     end
 		# pretty-print a reference
@@ -49,7 +49,7 @@ module REST
 		end
 		alias :inspect :to_s
 		%w(get put post delete).each do |verb|
-			define_method verb do
+			define_method MV.sym(verb) do
 				if @pattern.verbs[verb]
 					value = instance_exec(&@pattern.verbs[verb][1])
 					reply :body => @pattern.render(value) unless @reply
@@ -62,7 +62,7 @@ module REST
 		# these wrap user-defined verbs
 		def adapters(methods)
 			methods.each do |method|
-				define_method "#{method}_handler" do
+				define_method MV.sym("#{method}_handler") do
 					block = @pattern.send "_#{method}"
 					block ? block : proc do |*args|
 						send "default_#{method}", *args
@@ -89,7 +89,7 @@ module REST
 		# thence to the server, to initialize routes for global requests to
 		# reach the pattern instance.
     def map
-      MV.map(/^\/#{@regex.source}/) do |request|
+			block = proc do |request|
 				parts = request.path.url_split
 				top_inst = instance nil, parts.subpath(0)
         inst = self.handle nil, top_inst, parts, 1
@@ -100,7 +100,10 @@ module REST
 				end
 				{:code => 404, :body => "no handler for #{path}"}
       end
+			MV.map(/^\/#{@regex.source}/, block)
     end
+
+		alias :serve :map
 
 		def parse(path)
 			parts = path.url_split
@@ -135,10 +138,11 @@ module REST
     end
 
 		%w(int string float).each do |type|
+			type = MV.sym(type)
 			define_method type do |*attrs|
 				hash = {}
 				attrs.each do |a|
-					hash[a] = type.to_sym
+					hash[a] = type
 				end
 				attributes hash
 			end
@@ -151,7 +155,7 @@ module REST
 		# its actions to the parent pattern instance.
 		def add_attribute(name, type)
 			@attributes << name
-			uclass = eval "@#{self.type}"
+			uclass = instance_variable_get "@#{self.type}"
 			entity(/#{name}/, REST::Attribute) do
 				read, write = false, false
 				if uclass.instance_methods.include? name.to_s
@@ -160,13 +164,13 @@ module REST
 				else
 					read, write = true, true
 					uclass.send :attr_reader, name
-					uclass.send :define_method, "#{name}=" do |value|
+					uclass.send :define_method, MV.sym("#{name}=") do |value|
 						value = case type
 							when :int then value.to_i
 							when :float then value.to_f
 							else value
 						end
-						eval "@#{name} = value"
+						instance_variable_set "@#{name}", value
 					end
 				end
 				get { @parent.send name } if read
@@ -198,6 +202,7 @@ module REST
 
 		# re-generate a possible source path from the regex and
 		# the parameters. if any parameters are missing, return nil.
+		# TODO: this won't work for entities with :trailing
 		def generate_path(params)
 			path = @regex.source
 			@parts.each do |part|
@@ -220,10 +225,9 @@ module REST
 		def create_instance(block)
 			@model = Module.new
 			instance_eval &block
-			klass = eval "@#{type}"
-			pattern = eval "#{type.capitalize}Instance"
+			klass = instance_variable_get "@#{type}"
+			pattern = REST.const_get "#{type.capitalize}Instance"
 			@instance = klass.new
-			@instance.set_var :pattern, self
 			[PatternInstance, pattern, @model].each do |mod|
 				mod = mod.clone
 				%w(render).each do |fun|
@@ -233,6 +237,7 @@ module REST
 				end
 				@instance.extend mod
 			end
+			@instance.set_var :pattern, self
 			@instance
 		end
 

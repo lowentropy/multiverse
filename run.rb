@@ -25,9 +25,7 @@ total += time 'read' do
 		state :default do
 			start do
 				MV.req 'scripts/agent.rb'
-				agent = load_agent 'cache'
-				agent.load_client
-				MV.log :debug, Cache.new.inspect
+				load_agent('cache').load_server
 			end
 		end
 	END

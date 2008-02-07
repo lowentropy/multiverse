@@ -9,6 +9,13 @@ module MV
 		end
 	end
 
+	class Response
+		attr_reader :code, :body, :headers
+		def initialize(code, body, headers)
+			@code, @body, @headers = code, body, headers
+		end
+	end
+
 	private
 
 	def self.def_priv(name, return_nil=true, &block)
@@ -45,9 +52,15 @@ module MV
 	end
 
 	%w(get put post delete).each do |verb|
-		self.def_priv verb, false do |*args|
-			server.send_request verb, *args
+		self.def_priv verb, false do |options|
+			code, body, headers = server.send_request verb, options
+			Response.new code, body, headers
 		end
+	end
+
+	def_priv :sym, false do |str|
+		raise "naughty!" unless /[a-zA-Z0-9_]+/ =~ str
+		str.to_sym
 	end
 
 	def_priv :log do |level,message|

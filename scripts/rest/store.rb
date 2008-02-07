@@ -97,8 +97,8 @@ module REST
 		end
 
 		%w(index find add delete).each do |method|
-			define_method "#{method}_handler" do
-				eval "@#{method}"
+			define_method MV.sym("#{method}_handler") do
+				instance_variable_get "@#{method}"
 			end
 		end
 

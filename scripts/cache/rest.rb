@@ -1,4 +1,13 @@
-use 'rest'
+state :default do
+start do
+
+MV.req('scripts/ext.rb')
+MV.req('scripts/agent.rb')
+load_agent('rest').load_client
+
+class << self
+	include REST
+end
 
 @cache = store(/cache/, Cache) do
 	attributes :size
@@ -30,3 +39,6 @@ use 'rest'
 end
 
 @cache.serve
+
+end
+end
