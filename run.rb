@@ -24,8 +24,8 @@ total += time 'read' do
 	@script.eval <<-END
 		state :default do
 			start do
-				MV.req 'scripts/agent.rb'
-				load_agent('cache').load_server
+				MV.req 'scripts/foo.rb'
+				X.foo
 			end
 		end
 	END
@@ -39,6 +39,8 @@ total += time 'wait' do
 	Thread.pass while @script.running?
 end
 
+puts @script.instance_variable_get(:@files).inspect # DEBUG
+
 total += time 'stop' do
 	@server.stop
 end
@@ -46,8 +48,6 @@ end
 total += time 'join' do
 	@server.join.each do |e|
 		fail e
-		puts e
-		puts e.backtrace.map {|l| "\t#{l}"}
 	end
 end
 

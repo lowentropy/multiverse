@@ -84,16 +84,88 @@ class Script
 	def initialize(name, options={})
 		@name = name
 		@sandbox = Sandbox.safe
+		@regex = /\(eval\):([0-9]+)/
+		@files, @size = [], 0
+		@fix_errors = false
 		@options = options.merge(:safelevel => 3, :timeout => 5)
 		@routes = {}
 		import 'Script::Definers'
 		eval '@states = {}; @state = nil'
 	end
 
+	# get the 'current line' of the sandbox
+	def current_line
+		begin
+			@sandbox.eval "raise 'foo'"
+		rescue Sandbox::Exception => e
+		end
+		lines = e.backtrace.select {|l| @regex =~ l}
+		@regex.match(lines[0])[1].to_i
+	end
+
+	# evaluate a file. it will be added to the
+	# improved error reporting.
+	def eval_file(name, text=nil)
+		base = current_line
+		text ||= File.read(name)
+		size = text.split("\n").size
+		@sandbox.eval(text+";nil")
+		@files << [name,@size+base,size]
+		@size += size
+	end
+
 	# evaluate script text
-	def eval(str)
+	def eval(str, options={})
 		raise "can't load while running" if @running
-		@sandbox.eval str, @options
+		begin
+			@sandbox.eval str, @options.merge(options)
+		rescue Sandbox::Exception => e
+			fail(@fix_errors ? fix_error(e) : e)
+		end
+	end
+
+	# fix a sandbox error
+	def fix_error(e)
+		error_sub(e.message)
+		e.backtrace.each {|err| error_sub(err) }
+		
+		line1 = nil
+		e.message.sub!(/.*/) do |str|
+			m = /([^:]+): ([^:]+:[0-9]+:[^:]+): (.+)/.match str
+			line1 = m[2]
+			"#{m[1]}: #{m[3]}"
+		end
+
+		e.backtrace.unshift line1
+		# e.backtrace.reject! {|err| /in `_eval'/ =~ err}
+		e.backtrace.reject! {|err| /sandbox\.rb/ =~ err}
+
+		e
+	end
+
+	# make source line substitutions on an error line
+	def error_sub(err)
+		err.sub!(@regex) do |str|
+			line = @regex.match(str)[1].to_i
+			file, line = error_source line
+			"#{file}:#{line}"
+		end
+	end
+
+	# find the actual source of an error
+	def error_source(line)
+		puts "determining source of #{line}"
+		if @files.any? and line < @files[0][1]
+			return ["(eval)", line-@base+1]
+		end
+		@files.each do |file|
+			name, base, size = file
+			if line >= base and line < base+size
+				return [name, line-base+1]
+			end
+		end
+		max = @files.any? ? (@files[-1][1]+@files[-1][2]) : @base
+		["(eval)", line-max+1]
 	end
 
 	# explicitly declare a state
@@ -109,11 +181,6 @@ class Script
 			@sandbox.import Kernel.eval(name_or_module)
 			@sandbox.eval "class << self; include #{name_or_module}; end; nil"
 		end
-	end
-
-	# load text into script, as given name
-	def load(name, text)
-		eval(text)
 	end
 
 	# reset state definitions
@@ -152,7 +219,9 @@ class Script
 		end
 		@failed = false
 		@finished = false
-		@sandbox.eval "__main(#{MV.thread_id})", :safelevel => 4
+		@base = current_line
+		puts "base = #{@base}" # DEBUG
+		self.eval "__main(#{MV.thread_id})", :safelevel => 4
 	end
 
 	# stop the state machine
