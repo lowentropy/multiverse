@@ -203,7 +203,7 @@ class Server < Mongrel::HttpHandler
 			raise "#{file} not safe!" unless file_safe(file)
 		end
 		files.each do |file|
-			script.eval_file file
+			script.eval File.read(file), file
 		end
 	end
 

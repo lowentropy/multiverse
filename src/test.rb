@@ -12,8 +12,9 @@ class TestScript < Script
 		@state = nil
 	end
 
-	def eval(str, options={})
-		instance_eval str
+	# TODO: add timeout and safelevel
+	def eval(str, file="(top"), options={})
+		instance_eval str, file
 	end
 
 	def import(name_or_mod)

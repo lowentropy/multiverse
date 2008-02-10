@@ -85,8 +85,8 @@ class Script
 		@name = name
 		@sandbox = Sandbox.safe
 		@regex = /\(eval\):([0-9]+)/
-		@files, @size = [], 0
-		@fix_errors = false
+		@files, @max = [], nil
+		@fix_errors = true
 		@options = options.merge(:safelevel => 3, :timeout => 5)
 		@routes = {}
 		import 'Script::Definers'
@@ -103,22 +103,18 @@ class Script
 		@regex.match(lines[0])[1].to_i
 	end
 
-	# evaluate a file. it will be added to the
-	# improved error reporting.
-	def eval_file(name, text=nil)
+	# evaluate some text. keeps a data structure that lets exceptions
+	# determine what named code input and line they come from.
+	def eval(text, name=nil, options={})
+		name ||= "(top)"
+		2.times { text = text.gsub(/\n\n/,"\n;\n") }
 		base = current_line
-		text ||= File.read(name)
-		size = text.split("\n").size
-		@sandbox.eval(text+";nil")
-		@files << [name,@size+base,size]
-		@size += size
-	end
-
-	# evaluate script text
-	def eval(str, options={})
-		raise "can't load while running" if @running
+		pre = "\n" * ((@max ||= base) - base)
+		size = text.split.size
+		@files << [name,@max,size]
+		@max += size
 		begin
-			@sandbox.eval str, @options.merge(options)
+			@sandbox.eval(pre+text+";nil", @options.merge(options))
 		rescue Sandbox::Exception => e
 			fail(@fix_errors ? fix_error(e) : e)
 		end
@@ -132,12 +128,13 @@ class Script
 		line1 = nil
 		e.message.sub!(/.*/) do |str|
 			m = /([^:]+): ([^:]+:[0-9]+:[^:]+): (.+)/.match str
+			puts e.message unless m # DEBUG
 			line1 = m[2]
 			"#{m[1]}: #{m[3]}"
 		end
 
 		e.backtrace.unshift line1
-		# e.backtrace.reject! {|err| /in `_eval'/ =~ err}
+		e.backtrace.reject! {|err| /in `_eval'/ =~ err}
 		e.backtrace.reject! {|err| /sandbox\.rb/ =~ err}
 
 		e
@@ -156,7 +153,7 @@ class Script
 	def error_source(line)
 		puts "determining source of #{line}"
 		if @files.any? and line < @files[0][1]
-			return ["(eval)", line-@base+1]
+			return ["(???)", line]
 		end
 		@files.each do |file|
 			name, base, size = file
@@ -164,13 +161,12 @@ class Script
 				return [name, line-base+1]
 			end
 		end
-		max = @files.any? ? (@files[-1][1]+@files[-1][2]) : @base
-		["(eval)", line-max+1]
+		["(???)", line]
 	end
 
 	# explicitly declare a state
 	def state(name, &block)
-		eval "state :#{name}, &(#{block.to_ruby})"
+		eval "state :#{name}, &(#{block.to_ruby})", "(#{name})"
 	end
 
 	# import a module into the script
@@ -185,7 +181,7 @@ class Script
 
 	# reset state definitions
 	def reset
-		eval "@states = {}; @state = nil"
+		@sandbox.eval "@states = {}; @state = nil"
 	end
 
 	# get the next command
