@@ -24,8 +24,6 @@ total += time 'read' do
 	@script.eval <<-END
 		state :default do
 			start do
-				MV.req 'scripts/foo.rb'
-				X.foo
 			end
 		end
 	END
@@ -38,8 +36,6 @@ end
 total += time 'wait' do
 	Thread.pass while @script.running?
 end
-
-puts @script.instance_variable_get(:@files).inspect # DEBUG
 
 total += time 'stop' do
 	@server.stop

@@ -220,7 +220,6 @@ class Script
 		@failed = false
 		@finished = false
 		@base = current_line
-		puts "base = #{@base}" # DEBUG
 		self.eval "__main(#{MV.thread_id})", :safelevel => 4
 	end
 
@@ -235,6 +234,7 @@ class Script
 	def failed!
 		@sandbox.eval '@stopping = false'
 		@sandbox.eval '@running = false'
+		@sandbox.eval '@finished = true'
 		@failed = true
 	end
 
@@ -245,7 +245,7 @@ class Script
 
 	# did the script run and then stop?
 	def finished?
-		@finished
+		@sandbox.eval "@finished"
 	end
 
 	# is the script running?
