@@ -34,6 +34,7 @@ class Script
 			@state = :default
 			@stopping = false
 			@running = true
+			@halted = false
 			no_result = :no_result
 			result = no_result
 			until @stopping
@@ -44,11 +45,13 @@ class Script
 				catch(:goto) do
 					result = block.call
 				end
-				break if result != no_result
+				break if result != no_result or @halted
 			end
+			Thread.pass while @halted and not @stopping
 			@finished = true
 			@running = false
 			@stopping = false
+			@halted = false
 			result
 		end
 		# handle an http request
@@ -106,8 +109,8 @@ class Script
 
 	# evaluate some text. keeps a data structure that lets exceptions
 	# determine what named code input and line they come from.
-	def eval(text, name=nil, options={})
-		name ||= "(top)"
+	def eval(text=nil, name="(top)", options={}, &block)
+		text = block.to_ruby+".call" if block
 		2.times { text = text.gsub(/\n\n/,"\n;\n") }
 		base = current_line
 		@max = base if @max < base
@@ -139,7 +142,7 @@ class Script
 		end
 
 		e.backtrace.unshift line1
-		e.backtrace.reject! {|err| /in `_eval'/ =~ err}
+		#e.backtrace.reject! {|err| /in `_eval'/ =~ err}
 		e.backtrace.reject! {|err| /sandbox\.rb/ =~ err}
 
 		e
@@ -156,7 +159,6 @@ class Script
 
 	# find the actual source of an error
 	def error_source(line)
-		puts "determining source of #{line}"
 		if @files.any? and line < @files[0][1]
 			return ["(???)", line]
 		end

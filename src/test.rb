@@ -14,7 +14,7 @@ class TestScript < Script
 	end
 
 	# TODO: add timeout and safelevel
-	def eval(str, file="(top"), options={})
+	def eval(str, file="(top)", options={})
 		instance_eval str, file
 	end
 

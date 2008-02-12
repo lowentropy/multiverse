@@ -1,48 +1,43 @@
 require 'rubygems'
 require 'spec'
-require 'src/ext'
-require 'src/environment'
 require 'src/server'
+require 'src/script'
 
 describe "Entity" do
   before :each do
-		begin
-			@server = Server.new :log => {:level => :fatal}, 'port' => 4000
-			@host = @server.localhost
-		rescue Exception => e
-			puts e
-			puts e.backtrace
-		end
+		@server = Server.new
+		@host = 'localhost'
+		@script = Script.new 'test'
 		@server.start
-		@server.sandbox do
-			use! 'rest'
-			def cause(code, &block)
-				ok = false
-				begin
-					block.call
-				rescue Exception => e
-					/#{code}/.should =~ e.message
-					ok = true
-				end
-				ok.should == true
-			end
-		end
+		@script.eval <<-END
+			MV.req 'scripts/agents.rb'
+			load_agent('rest').load_client
+		END
 	end
 
   after :each do
-		return unless @server
-		@server.shutdown
+		@server.stop
 		@server.join
-  # rescue Mongrel::StopServer => e
 	end
-	
+
+	def req(file)
+		@script.eval "MV.req 'scripts/test/rest/#{file}'"
+	end
+
   it 'should run top entity through rest' do
-		@server.load :host, {}, "scripts/test/rest/top_entity.rb"
-		code, response = @server.post @host, '/rest/test'
-    code.should == 200
+		req 'top_entity.rb'
+		@script.eval do
+			state :default do
+				test do
+					'/rest/test'.to_behavior.post
+				end
+			end
+		end
+		@server.run @script
 	end
 
 	it 'should set and get entity attributes' do
+		pending "conversion"
 		@server.load :host, {}, "scripts/test/rest/entity_attr.rb"
 		@server.sandbox do
 			foo = '/foo'.to_entity
@@ -56,6 +51,7 @@ describe "Entity" do
 	end
 	
   it 'should set attributes and get entity' do
+		pending "conversion"
     @server.load :host, {}, "scripts/test/rest/entity_attr.rb"
   	@server.sandbox do
 			foo = '/foo'.to_entity
@@ -68,6 +64,7 @@ describe "Entity" do
   end
   
 	it 'should active entity' do
+		pending "conversion"
 		@server.load :host, {}, "scripts/test/rest/entity_active.rb"
 		@server.sandbox do
 			foo = '/foo'.to_entity
@@ -79,6 +76,7 @@ describe "Entity" do
 	end
 	
 	it 'should dynamic entity name' do
+		pending "conversion"
 		@server.load :host, {}, "scripts/test/rest/entity_dynamic_name.rb"
 		@server.sandbox do
 			%w(/foo /bar /baz /bazzz).each do |name|
@@ -95,6 +93,7 @@ describe "Entity" do
 	end
 
 	it 'should parse uri' do
+		pending "conversion"
 		@server.load :host, {}, "scripts/test/rest/entity_parse_uri.rb"
 		@server.sandbox do
 			10.times do
@@ -105,6 +104,7 @@ describe "Entity" do
 	end
 	
   it 'should sub entity' do
+		pending "conversion"
 		@server.load :host, {}, "scripts/test/rest/entity_sub.rb"
 		@server.sandbox do
 			(foo = '/foo'.to_entity).get.should == 'foo'
