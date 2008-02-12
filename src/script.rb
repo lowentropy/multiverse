@@ -2,6 +2,7 @@ require 'sandbox'
 require 'rubygems'
 require 'ruby2ruby'
 
+$: << File.dirname(__FILE__)
 require 'mv'
 
 # A state machine in a f.f.sandbox.
@@ -85,7 +86,7 @@ class Script
 		@name = name
 		@sandbox = Sandbox.safe
 		@regex = /\(eval\):([0-9]+)/
-		@files, @max = [], nil
+		@files, @max = [], 0
 		@fix_errors = true
 		@options = options.merge(:safelevel => 3, :timeout => 5)
 		@routes = {}
@@ -109,15 +110,19 @@ class Script
 		name ||= "(top)"
 		2.times { text = text.gsub(/\n\n/,"\n;\n") }
 		base = current_line
-		pre = "\n" * ((@max ||= base) - base)
+		@max = base if @max < base
+		pre = "\n" * (@max - base)
 		size = text.split.size
 		@files << [name,@max,size]
 		@max += size
+		preserve = options.delete :preserve
+		post = preserve ? "" : ";nil"
 		begin
-			@sandbox.eval(pre+text+";nil", @options.merge(options))
+			value = @sandbox.eval(pre+text+post, @options.merge(options))
 		rescue Sandbox::Exception => e
 			fail(@fix_errors ? fix_error(e) : e)
 		end
+		value
 	end
 
 	# fix a sandbox error
@@ -206,6 +211,7 @@ class Script
 	def run
 		raise 'already running' if running?
 		unless @ran
+			$thread ||= MV::ThreadLocal.new
 			$thread[:script] = self
 			import 'Script::Runners'
 			@sandbox.ref MV
@@ -216,7 +222,8 @@ class Script
 		@failed = false
 		@finished = false
 		@base = current_line
-		self.eval "__main(#{MV.thread_id})", :safelevel => 4
+		self.eval "__main(#{MV.thread_id})", "(main)",
+			:safelevel => 4, :preserve => true
 	end
 
 	# stop the state machine

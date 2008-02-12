@@ -5,7 +5,7 @@ require 'src/script'
 describe "Scripts" do
 
 	before :each do
-		@script = Script.new
+		@script = Script.new 'test'
 	end
 	
   it 'should remember state info' do
