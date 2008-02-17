@@ -30,7 +30,6 @@ class Script
 		# run the state machine; return last evaluated
 		# expression after a goto
 		def __main(prev_thread_id)
-			MV.__continue(prev_thread_id)
 			@state = :default
 			@stopping = false
 			@running = true
@@ -88,6 +87,8 @@ class Script
 	def initialize(name, options={})
 		@name = name
 		@sandbox = Sandbox.safe
+		@sandbox.ref MV
+		@sandbox.ref MV::Request
 		@regex = /\(eval\):([0-9]+)/
 		@files, @max = [], 0
 		@fix_errors = true
@@ -107,6 +108,11 @@ class Script
 		@regex.match(lines[0])[1].to_i
 	end
 
+	# set the server
+	def server=(server)
+		MV.server = server
+	end
+
 	# evaluate some text. keeps a data structure that lets exceptions
 	# determine what named code input and line they come from.
 	def eval(text=nil, name="(top)", options={}, &block)
@@ -120,6 +126,8 @@ class Script
 		@max += size
 		preserve = options.delete :preserve
 		post = preserve ? "" : ";nil"
+		$thread[:script] = self
+		pre += "MV.__continue(#{MV.thread_id});"
 		begin
 			value = @sandbox.eval(pre+text+post, @options.merge(options))
 		rescue Sandbox::Exception => e
@@ -136,12 +144,15 @@ class Script
 		line1 = nil
 		e.message.sub!(/.*/) do |str|
 			m = /([^:]+): ([^:]+:[0-9]+:[^:]+): (.+)/.match str
-			puts e.message unless m # DEBUG
-			line1 = m[2]
-			"#{m[1]}: #{m[3]}"
+			if m
+				line1 = m[2]
+				"#{m[1]}: #{m[3]}"
+			else
+				str
+			end
 		end
 
-		e.backtrace.unshift line1
+		e.backtrace.unshift line1 if line1
 		#e.backtrace.reject! {|err| /in `_eval'/ =~ err}
 		e.backtrace.reject! {|err| /sandbox\.rb/ =~ err}
 
@@ -213,11 +224,8 @@ class Script
 	def run
 		raise 'already running' if running?
 		unless @ran
-			$thread ||= MV::ThreadLocal.new
 			$thread[:script] = self
 			import 'Script::Runners'
-			@sandbox.ref MV
-			@sandbox.ref MV::Request
 			@sandbox.eval 'self.taint'
 			@ran = true
 		end

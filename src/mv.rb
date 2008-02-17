@@ -37,13 +37,18 @@ module MV
 			thread[name]
 		end
 		def []=(name, value)
+			puts "#{$thread.object_id}: #{MV.thread_id}: #{name} = #{value}" # DEBUG
 			thread[name] = value
 		end
 		def thread
 			@threads[MV.thread_id] ||= {}
 		end
 		def continue(old_id)
-			thread.merge! @threads[old_id]
+			puts "continue: #{self.object_id}: #{@threads.keys.inspect}"
+			return nil unless @threads[old_id]
+			@threads[old_id].each do |key,val|
+				self[key] = val
+			end
 			nil
 		end
 	end
@@ -94,6 +99,10 @@ module MV
 
 	def self.map(regex, block)
 		_map regex, block
+	end
+
+	def self.server=(server)
+		$thread[:server] = server
 	end
 
 	private

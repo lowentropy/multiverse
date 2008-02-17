@@ -52,7 +52,7 @@ class Server < Mongrel::HttpHandler
 		raise "can't run script while stopping" if stopping?
 		@scripts << script
 		@threads << [Thread.new(script, exc=[]) do
-			$thread[:server] = self
+			$thread[:server] = self # FIXME: is this necessary?
 			begin
 				script.run
 				@scripts.delete script
