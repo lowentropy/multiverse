@@ -11,6 +11,7 @@ describe "Entity" do
 		@server.start
 		@script.server = @server
 		@script.eval <<-END
+			MV.req 'scripts/ext.rb'
 			MV.req 'scripts/agent.rb'
 			load_agent('rest').load_client
 		END
@@ -18,7 +19,16 @@ describe "Entity" do
 
   after :each do
 		@server.stop
-		@server.join
+		errs = @server.join
+		if errs.size > 1
+			errs.each do |e|
+				puts e.message
+				puts e.backtrace
+				puts ""
+			end
+		elsif errs.any?
+			fail errs[0]
+		end
 	end
 
 	def req(file)
@@ -27,10 +37,10 @@ describe "Entity" do
 
   it 'should run top entity through rest' do
 		req 'top_entity.rb'
-		@script.eval do
+		@script.eval nil, "(test)" do
 			state :default do
-				test do
-					'/rest/test'.to_behavior.post
+				start do
+					MV.log :info, '/rest/test'.to_behavior.post.inspect
 				end
 			end
 		end

@@ -153,8 +153,7 @@ class Script
 		end
 
 		e.backtrace.unshift line1 if line1
-		#e.backtrace.reject! {|err| /in `_eval'/ =~ err}
-		e.backtrace.reject! {|err| /sandbox\.rb/ =~ err}
+		e.backtrace.reject! {|err| /in `_eval'/ =~ err}
 
 		e
 	end
