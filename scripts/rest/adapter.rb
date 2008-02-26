@@ -1,3 +1,6 @@
+MV.req 'scripts/agent.rb'
+load_agent('lib/uri').load_client
+
 module REST
 
 	class Adapter

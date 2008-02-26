@@ -104,7 +104,7 @@ class Script
 	def eval(text=nil, name="(top)", options={}, &block)
 		$thread[:script] = self
 		preserve = options.delete :preserve
-		text = preformat text, preserve, &block
+		text = preformat name, text, preserve, &block
 		begin
 			@loading << name if /.*\.rb/ =~ name
 			@sandbox.eval(text, @options.merge(options))
@@ -134,7 +134,7 @@ class Script
 	end
 
 	# preformat evaluable text for loading
-	def preformat(text, preserve, &block)
+	def preformat(name, text, preserve, &block)
 		# get text from raw or block
 		text = block.to_ruby+".call" if block
 		# make sure empty lines are counted

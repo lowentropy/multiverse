@@ -148,7 +148,10 @@ class Server < Mongrel::HttpHandler
 	# perform an action which must complete in
 	# finite time. throws an exception otherwise.
 	def timeout(timeout=0, &block)
-		Thread.new(block,v=[]) {v << block.call}.join(timeout)
+		Thread.new(MV.thread_id,block,v=[]) do |id,block,v|
+			MV.__continue(id)
+			v << block.call
+		end.join(timeout)
 		return v[0] if v.any?
 		raise Timeout.new
 	end

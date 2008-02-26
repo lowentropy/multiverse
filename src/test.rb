@@ -8,6 +8,7 @@ class TestScript < Script
 		@name = name
 		@sandbox = self
 		@routes = {}
+		@loaded, @loading = [], []
 		extend Script::Definers
 		@states = {}
 		@state = nil
@@ -15,6 +16,7 @@ class TestScript < Script
 
 	# TODO: add timeout and safelevel
 	def eval(str, file="(top)", options={})
+		$thread[:script] = self
 		instance_eval str, file
 	end
 

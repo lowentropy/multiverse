@@ -4,15 +4,20 @@ module MV::Agents
 		Agent.new(name, &block)
 	end
 	
-	def load_agent(name)
-		MV.req "scripts/#{name}/agent.rb"
-		instance_variable_get "@#{name}_agent"
+	def load_agent(path)
+		name = path.split('/')[-1]
+		MV.req "scripts/#{path}/agent.rb"
+		agent = instance_variable_get "@#{name}_agent"
+		agent.path = path
+		agent
 	end
 
 	class Agent
 		attr_reader :name
+		attr_accessor :path
 		def initialize(name=nil, &block)
 			@name = name || '???'
+			@path = "scripts/#{name}"
 			@libs, @code, @uid, @version = [], [], nil, nil
 			self.instance_exec &block
 			class << self
@@ -24,7 +29,7 @@ module MV::Agents
 		def libs(*v); @libs = v; end
 		def code(*v); @code = v; end
 		def prep(files)
-			files.map {|f| "scripts/#{@name}/#{f}"}
+			files.map {|f| "scripts/#{@path}/#{f}"}
 		end
 		def load_server
 			MV.load(name, *prep(libs+code))

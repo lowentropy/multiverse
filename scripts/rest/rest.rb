@@ -1,3 +1,5 @@
+MV.req 'scripts/ext.rb'
+
 # RESTful extensions
 class ::String
 	def to_rest
