@@ -30,6 +30,7 @@ class Server < Mongrel::HttpHandler
 		@log = Log4r::Logger.new 'server'
 		@log.outputters << Log4r::StdoutOutputter.new('MV')
 		$thread = MV::ThreadLocal.new
+		$thread[:server] = self
 	end
 
 	# run some code in a sandbox
@@ -52,7 +53,6 @@ class Server < Mongrel::HttpHandler
 		raise "can't run script while stopping" if stopping?
 		@scripts << script
 		@threads << [Thread.new(script, exc=[]) do
-			$thread[:server] = self # FIXME: is this necessary?
 			begin
 				script.run
 				@scripts.delete script

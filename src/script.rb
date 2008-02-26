@@ -81,11 +81,12 @@ class Script
 		end
 	end
 
-	attr_reader :name, :routes
+	attr_reader :name, :routes, :loaded, :loading
 	
 	# create a new script
 	def initialize(name, options={})
 		@name = name
+		@loaded, @loading = [], []
 		@sandbox = Sandbox.safe
 		@sandbox.ref MV
 		@sandbox.ref MV::Request
@@ -98,6 +99,30 @@ class Script
 		eval '@states = {}; @state = nil'
 	end
 
+	# evaluate some text. keeps a data structure that lets exceptions
+	# determine what named code input and line they come from.
+	def eval(text=nil, name="(top)", options={}, &block)
+		$thread[:script] = self
+		preserve = options.delete :preserve
+		text = preformat text, preserve, &block
+		begin
+			@loading << name if /.*\.rb/ =~ name
+			@sandbox.eval(text, @options.merge(options))
+			@loading.delete name
+			@loaded << name if /.*\.rb/ =~ name
+		rescue Sandbox::Exception => e
+			@loading.delete name
+			fail(@fix_errors ? fix_error(e) : e)
+		end
+	end
+
+	# set the server
+	def server=(server)
+		MV.server = server
+	end
+
+	private
+
 	# get the 'current line' of the sandbox
 	def current_line
 		begin
@@ -108,32 +133,26 @@ class Script
 		@regex.match(lines[0])[1].to_i
 	end
 
-	# set the server
-	def server=(server)
-		MV.server = server
-	end
-
-	# evaluate some text. keeps a data structure that lets exceptions
-	# determine what named code input and line they come from.
-	def eval(text=nil, name="(top)", options={}, &block)
+	# preformat evaluable text for loading
+	def preformat(text, preserve, &block)
+		# get text from raw or block
 		text = block.to_ruby+".call" if block
+		# make sure empty lines are counted
 		2.times { text = text.gsub(/\n\n/,"\n;\n") }
+		# find base of current eval text
 		base = current_line
 		@max = base if @max < base
+		# prepend empty lines to text for counting
 		pre = "\n" * (@max - base)
 		size = text.split.size
+		# append file to line lookup table
 		@files << [name,@max,size]
 		@max += size
-		preserve = options.delete :preserve
+		# link text to script environment
 		post = preserve ? "" : ";nil"
-		$thread[:script] = self
 		pre += "MV.__continue(#{MV.thread_id});"
-		begin
-			value = @sandbox.eval(pre+text+post, @options.merge(options))
-		rescue Sandbox::Exception => e
-			fail(@fix_errors ? fix_error(e) : e)
-		end
-		value
+		# return total text
+		pre + text + post
 	end
 
 	# fix a sandbox error
@@ -180,6 +199,8 @@ class Script
 		end
 		["(???)", line]
 	end
+
+	public
 
 	# explicitly declare a state
 	def state(name, &block)

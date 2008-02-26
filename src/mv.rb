@@ -92,7 +92,18 @@ module MV
 	end
 
 	def_priv :req do |*files|
-		server.req script, *files
+		to_load = []
+		files.each do |f|
+			if script.loaded.include? f
+				log :info, "already loaded #{f}"
+			elsif script.loading.include? f
+				log :info, "avoiding recursive load of #{f}"
+			else
+				log :info, "loading #{f}"
+				to_load << f
+			end
+		end
+		server.req script, *to_load
 	end
 
 	def self.map(regex, block)
